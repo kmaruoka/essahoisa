@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "sheetName": "東側時間順",
+    "sourceFile": "sample.xlsx",
+    "generatedAt": "2024-02-15T08:00:00+09:00",
+    "configKey": "east"
+  },
+  "entries": [
+    {
+      "id": "east-0830-supplier-a",
+      "number": "1",
+      "arrivalTime": "08:30",
+      "finishTime": "09:00",
+      "supplierName": "あずま資材",
+      "preparation": "単独",
+      "note": "7番シャッターから入線",
+      "yard": "第1置場",
+      "lane": "Aレーン",
+      "supplierReading": "あずましざい",
+      "materialReading": "けんちくざい"
+    },
+    {
+      "id": "east-0900-supplier-bc",
+      "number": "2",
+      "arrivalTime": "09:00",
+      "finishTime": "09:45",
+      "supplierName": "きたの資材　みなみ商事",
+      "preparation": "2社",
+      "note": "順番確認のうえ入線",
+      "yard": "第2置場",
+      "lane": "Bレーン",
+      "supplierReading": "きたのしざい　みなみしょうじ",
+      "materialReading": "かぐようざい"
+    },
+    {
+      "id": "east-0945-supplier-d",
+      "number": "3",
+      "arrivalTime": "09:45",
+      "finishTime": "10:15",
+      "supplierName": "とうよう物流",
+      "preparation": "単独",
+      "note": "",
+      "yard": "第3置場",
+      "lane": "Cレーン",
+      "supplierReading": "とうようぶつりゅう",
+      "materialReading": "かなざい"
+    }
+  ]
+}

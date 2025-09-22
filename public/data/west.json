@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "sheetName": "西側時間順",
+    "sourceFile": "sample.xlsx",
+    "generatedAt": "2024-02-15T08:10:00+09:00",
+    "configKey": "west"
+  },
+  "entries": [
+    {
+      "id": "west-0815-alpha",
+      "number": "1",
+      "arrivalTime": "08:15",
+      "finishTime": "08:45",
+      "supplierName": "ほくせい運輸",
+      "preparation": "単独",
+      "note": "西門点呼後に案内",
+      "yard": "西置場1",
+      "lane": "W1",
+      "supplierReading": "ほくせいうんゆ",
+      "materialReading": "かなもの"
+    },
+    {
+      "id": "west-0845-beta",
+      "number": "2",
+      "arrivalTime": "08:45",
+      "finishTime": "09:15",
+      "supplierName": "さがみ木材",
+      "preparation": "単独",
+      "note": "フォークリフトAで対応",
+      "yard": "西置場2",
+      "lane": "W2",
+      "supplierReading": "さがみもくざい",
+      "materialReading": "ざいもく"
+    },
+    {
+      "id": "west-0915-gamma",
+      "number": "3",
+      "arrivalTime": "09:15",
+      "finishTime": "09:45",
+      "supplierName": "にしかわ商会",
+      "preparation": "単独",
+      "note": "",
+      "yard": "西置場3",
+      "lane": "W3",
+      "supplierReading": "にしかわしょうかい",
+      "materialReading": "そうざい"
+    }
+  ]
+}

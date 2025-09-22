@@ -1,0 +1,40 @@
+{
+  "configVersion": "1.0",
+  "defaultMonitorId": "1",
+  "pollingIntervalSeconds": 30,
+  "speechFormat": "{supplierReading}がにゅうせんします。{materialReading}のじゅんびをおねがいします。",
+  "monitors": [
+    {
+      "id": "1",
+      "title": "東側 入線予定",
+      "dataUrl": "/data/east.json",
+      "sheetKey": "east",
+      "hasAudio": true,
+      "refreshIntervalSeconds": 30,
+      "displayEntryCount": 1,
+      "headerNote": "東ゲートでの入線予定を表示しています",
+      "speechLang": "ja-JP"
+    },
+    {
+      "id": "2",
+      "title": "東側 入線予定 (表示専用)",
+      "dataUrl": "/data/east.json",
+      "sheetKey": "east",
+      "hasAudio": false,
+      "refreshIntervalSeconds": 30,
+      "displayEntryCount": 1,
+      "headerNote": "音声案内なしのモニタ表示"
+    },
+    {
+      "id": "3",
+      "title": "西側 入線予定",
+      "dataUrl": "/data/west.json",
+      "sheetKey": "west",
+      "hasAudio": true,
+      "refreshIntervalSeconds": 30,
+      "displayEntryCount": 1,
+      "headerNote": "西ゲートでの入線予定を表示しています",
+      "speechLang": "ja-JP"
+    }
+  ]
+}
