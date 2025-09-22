@@ -89,23 +89,10 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     setLastSpokenId(target.id);
   }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, appConfig.speechFormat, mainEntries, lastSpokenId]);
 
-  const headerMeta: string[] = [];
-  if (data?.meta?.sheetName) {
-    headerMeta.push(`シート: ${data.meta.sheetName}`);
-  }
-  if (data?.meta?.generatedAt) {
-    headerMeta.push(`最終更新: ${toDisplayTime(data.meta.generatedAt)}`);
-  }
-  if (monitor.sheetKey) {
-    headerMeta.push(`設定キー: ${monitor.sheetKey}`);
-  }
-
   return (
     <div className="screen">
       <header className="header">
         <div className="header-title">{monitor.title}</div>
-        {monitor.headerNote && <div className="header-note">{monitor.headerNote}</div>}
-        {headerMeta.length > 0 && <div className="header-meta">{headerMeta.join(' ｜ ')}</div>}
         {!SPEECH_SUPPORTED && monitor.hasAudio && (
           <div className="header-note">※ このブラウザーでは音声合成が利用できません。</div>
         )}

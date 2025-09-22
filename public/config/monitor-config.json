@@ -6,7 +6,7 @@
   "monitors": [
     {
       "id": "1",
-      "title": "東側 入線予定",
+      "title": "東置場",
       "dataUrl": "/data/east.json",
       "sheetKey": "east",
       "hasAudio": true,
@@ -17,7 +17,7 @@
     },
     {
       "id": "2",
-      "title": "東側 入線予定 (表示専用)",
+      "title": "東置場",
       "dataUrl": "/data/east.json",
       "sheetKey": "east",
       "hasAudio": false,
@@ -27,7 +27,7 @@
     },
     {
       "id": "3",
-      "title": "西側 入線予定",
+      "title": "西置場",
       "dataUrl": "/data/west.json",
       "sheetKey": "west",
       "hasAudio": true,
