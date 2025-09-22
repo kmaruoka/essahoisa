@@ -17,12 +17,12 @@
   "sheets": [
     {
       "key": "east",
-      "sheetName": "東側時間順",
+      "sheetName": "東側時間順 ",
       "outputFile": "east.json"
     },
     {
       "key": "west",
-      "sheetName": "西側時間順",
+      "sheetName": "西側時間順 ",
       "outputFile": "west.json"
     }
   ]

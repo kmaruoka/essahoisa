@@ -32,10 +32,28 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
   });
 
   const entries = useMemo(() => data?.entries ?? [], [data]);
+  
+  // 現在時刻を基準に直近未来時刻のデータを取得
+  const filteredEntries = useMemo(() => {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // 分単位で現在時刻を取得
+    
+    return entries.filter(entry => {
+      if (!entry.arrivalTime) return false;
+      
+      // 到着時刻を分単位に変換
+      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
+      const arrivalTime = hours * 60 + minutes;
+      
+      // 現在時刻以降のデータのみを取得
+      return arrivalTime >= currentTime;
+    });
+  }, [entries]);
+  
   const displayCountRaw = monitor.displayEntryCount ?? 1;
   const mainCount = Math.max(1, displayCountRaw);
-  const mainEntries = entries.slice(0, mainCount);
-  const nextEntry = entries.length > mainCount ? entries[mainCount] : undefined;
+  const mainEntries = filteredEntries.slice(0, mainCount);
+  const nextEntry = filteredEntries.length > mainCount ? filteredEntries[mainCount] : undefined;
 
   const [lastSpokenId, setLastSpokenId] = useState<string | null>(null);
 
