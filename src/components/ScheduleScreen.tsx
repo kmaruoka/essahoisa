@@ -73,7 +73,22 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     refreshIntervalMs,
   });
 
-  const entries = useMemo(() => data?.entries ?? [], [data]);
+  const entries = useMemo(() => {
+    if (!data?.entries) return [];
+    
+    // arrivalTimeで昇順ソート
+    return [...data.entries].sort((a, b) => {
+      if (!a.arrivalTime || !b.arrivalTime) return 0;
+      
+      const [aHours, aMinutes] = a.arrivalTime.split(':').map(Number);
+      const [bHours, bMinutes] = b.arrivalTime.split(':').map(Number);
+      
+      const aTime = aHours * 60 + aMinutes;
+      const bTime = bHours * 60 + bMinutes;
+      
+      return aTime - bTime;
+    });
+  }, [data]);
   
   // 現在時刻を基準に直近未来時刻のデータを取得（日をまたぐ対応）
   const filteredEntries = useMemo(() => {
