@@ -2,7 +2,7 @@
   "meta": {
     "sheetName": "東側時間順 ",
     "sourceFile": "発車データ.xlsx",
-    "generatedAt": "2025-09-22T07:07:37.588Z",
+    "generatedAt": "2025-10-10T14:08:22.807Z",
     "configKey": "east"
   },
   "entries": [
@@ -24,7 +24,7 @@
       "finishTime": "4:55",
       "supplierName": "不二電子",
       "preparation": "2社",
-      "restriction": "混載不可",
+      "note": "混載不可",
       "yard": "西側のみ",
       "lane": "⑧",
       "supplierReading": "ふじでんし",
@@ -37,7 +37,7 @@
       "finishTime": "4:55",
       "supplierName": "中央発條（東洋含む）",
       "yard": "西側のみ",
-      "lane": "⑧",
+      "lane": "b",
       "supplierReading": "ちゅうおうはつじょう",
       "materialReading": "せいひんしー",
       "id": "east-450-003"
@@ -215,9 +215,9 @@
     },
     {
       "number": "18",
-      "arrivalTime": "19:15",
+      "arrivalTime": "20:00",
       "finishTime": "20:05",
-      "supplierName": "あいうえおかきくけこ\nさしすせそたちつてと",
+      "supplierName": "高棚便",
       "preparation": "複数社",
       "note": "右表参考",
       "yard": "東西あり",
@@ -229,8 +229,8 @@
     {
       "number": "19",
       "arrivalTime": "23:10",
-      "finishTime": "23:15",
-      "supplierName": "光徳便（高棚便空箱含む）",
+      "finishTime": "23:30",
+      "supplierName": "高棚便",
       "preparation": "複数社",
       "note": "右表参考",
       "yard": "東西あり",

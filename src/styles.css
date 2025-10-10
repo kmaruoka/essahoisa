@@ -15,7 +15,7 @@
   /* ヘッダの音声案内 */
   --font-size-small: clamp(2rem, 3vw, 5.5rem);
   /* 上段の上段 */
-  --font-size-responsive-large: clamp(1.8rem, 4.8vw, 7.2rem);
+  --font-size-responsive-large: clamp(1.8rem, 6vw, 7.2rem);
   /* 上段の下段と下段の上段 */
   --font-size-responsive-medium: clamp(1.5rem, 4.0vw, 6.0rem);
   /* 下段の下段 */

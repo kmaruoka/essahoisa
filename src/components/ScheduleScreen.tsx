@@ -90,74 +90,42 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     });
   }, [data]);
   
-  // 現在時刻を基準に直近未来時刻のデータを取得（日をまたぐ対応）
-  const filteredEntries = useMemo(() => {
+  // 表示対象の便を特定し、arrivalTimeが小さい順に2便を取得
+  const displayEntries = useMemo(() => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes(); // 分単位で現在時刻を取得
     
-    const filtered = entries.filter(entry => {
+    // 1. 表示対象の便を特定 - シンプルに現在時刻以降の便を取得
+    const targetEntries = entries.filter(entry => {
       if (!entry.arrivalTime) return false;
       
-      // 到着時刻を分単位に変換
       const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
       const arrivalTime = hours * 60 + minutes;
       
-      // 現在時刻以降のデータを取得
-      // ただし、深夜（23時以降）の場合は翌日の早朝（6時前）も含める
+      // 現在時刻以降の便を取得（日をまたぐ対応）
       if (currentTime >= 1380) { // 23:00以降
         return arrivalTime >= currentTime || arrivalTime < 360; // 6時前も含める
       } else {
-        return arrivalTime >= currentTime; // 通常は現在時刻以降のみ
+        return arrivalTime >= currentTime;
       }
     });
 
-    // 日をまたぐ場合、翌日の最初の便も含める
-    if (filtered.length === 0 || (currentTime >= 1380 && filtered.length < 3)) {
-      const nextDayEntries = entries.filter(entry => {
-        if (!entry.arrivalTime) return false;
-        const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-        const arrivalTime = hours * 60 + minutes;
-        return arrivalTime < 360; // 6時前の便
-      });
-      
-      // 翌日の便を追加（重複を避ける）
-      const existingTimes = new Set(filtered.map(e => e.arrivalTime));
-      const additionalEntries = nextDayEntries.filter(e => !existingTimes.has(e.arrivalTime));
-      return [...filtered, ...additionalEntries];
-    }
-
-    return filtered;
+    // 2. arrivalTimeが小さい順にソートして最初の2便を取得
+    const sorted = targetEntries.sort((a, b) => {
+      const [aHours, aMinutes] = a.arrivalTime.split(':').map(Number);
+      const [bHours, bMinutes] = b.arrivalTime.split(':').map(Number);
+      const aTime = aHours * 60 + aMinutes;
+      const bTime = bHours * 60 + bMinutes;
+      return aTime - bTime;
+    });
+    return sorted.slice(0, 2); // 最大2便
   }, [entries]);
   
-  const displayCountRaw = monitor.displayEntryCount ?? 1;
-  const mainCount = Math.max(1, displayCountRaw);
-  const mainEntries = filteredEntries.slice(0, mainCount);
+  // 上段（メイン表示）
+  const mainEntries = displayEntries.slice(0, 1);
   
-  // 次の便を取得（現在の便が最終便の場合は翌日の最初の便を表示）
-  const nextEntry = useMemo(() => {
-    if (filteredEntries.length > mainCount) {
-      return filteredEntries[mainCount];
-    }
-    
-    // 現在の便が最終便の場合、翌日の最初の便を探す
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    
-    // 翌日の早朝の便を探す
-    const nextDayEntries = entries.filter(entry => {
-      if (!entry.arrivalTime) return false;
-      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-      const arrivalTime = hours * 60 + minutes;
-      return arrivalTime < 360; // 6時前の便
-    });
-    
-    // 翌日の便の中で最も早いものを返す
-    if (nextDayEntries.length > 0) {
-      return nextDayEntries[0];
-    }
-    
-    return undefined;
-  }, [filteredEntries, mainCount, entries]);
+  // 下段（次の便）
+  const nextEntry = displayEntries[1];
 
   const [spokenEntries, setSpokenEntries] = useState<Set<string>>(new Set());
   const [userInteracted, setUserInteracted] = useState(false);
@@ -285,7 +253,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     if (!monitor.hasAudio || !SPEECH_SUPPORTED) {
       return;
     }
-    if (!filteredEntries.length) {
+    if (!displayEntries.length) {
       return;
     }
 
@@ -293,7 +261,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const speechTimings = monitor.speechTimings ?? [0]; // デフォルトは入線時刻
 
-    filteredEntries.forEach(entry => {
+    displayEntries.forEach(entry => {
       if (!entry.id || !entry.arrivalTime) return;
 
       // 到着時刻を分単位に変換
@@ -339,7 +307,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         }
       });
     });
-  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, monitor.speechTimings, appConfig.speechFormat, filteredEntries, spokenEntries]);
+  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, monitor.speechTimings, appConfig.speechFormat, displayEntries, spokenEntries]);
 
   return (
     <Container fluid className="screen">

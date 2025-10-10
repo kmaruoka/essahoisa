@@ -10,7 +10,6 @@ export interface ScheduleEntry {
   lane?: string;
   supplierReading?: string;
   materialReading?: string;
-  restriction?: string;
 }
 
 export interface ScheduleFile {

@@ -17,6 +17,7 @@ const buildConfigUrl = (): string => {
 };
 
 export default function App() {
+  console.log('App コンポーネント実行開始');
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +45,22 @@ export default function App() {
 
   useEffect(() => {
     const url = buildConfigUrl();
+    console.log('設定ファイルURL:', url);
     fetch(url, { cache: 'no-store' })
       .then(async (response) => {
+        console.log('設定ファイルレスポンス:', response.status);
         if (!response.ok) {
           throw new Error(`設定ファイルの取得に失敗しました (${response.status})`);
         }
         return (await response.json()) as AppConfig;
       })
       .then((json) => {
+        console.log('設定ファイル取得成功:', json);
         setConfig(json);
         setLoading(false);
       })
       .catch((err: unknown) => {
+        console.error('設定ファイル取得エラー:', err);
         setError(err instanceof Error ? err.message : '設定ファイルの取得に失敗しました');
         setLoading(false);
       });
@@ -67,8 +72,11 @@ export default function App() {
   }, [config]);
 
   const monitor: MonitorConfig | undefined = useMemo(() => {
+    console.log('monitor useMemo 実行:', { config, monitorId });
     if (!config || !monitorId) return undefined;
-    return config.monitors.find((item) => item.id === monitorId);
+    const found = config.monitors.find((item) => item.id === monitorId);
+    console.log('見つかったmonitor:', found);
+    return found;
   }, [config, monitorId]);
 
   if (loading) {
@@ -95,5 +103,6 @@ export default function App() {
     );
   }
 
+  console.log('ScheduleScreen をレンダリング:', { monitor, config });
   return <ScheduleScreen monitor={monitor} appConfig={config} />;
 }
