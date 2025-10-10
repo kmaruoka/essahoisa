@@ -21,6 +21,27 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 全画面表示の機能
+  useEffect(() => {
+    const requestFullscreen = async () => {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (error) {
+        console.log('全画面表示が拒否されました');
+      }
+    };
+
+    const handleClick = () => {
+      requestFullscreen();
+      document.removeEventListener('click', handleClick);
+    };
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   useEffect(() => {
     const url = buildConfigUrl();
     fetch(url, { cache: 'no-store' })

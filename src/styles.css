@@ -8,9 +8,18 @@
   --color-green: #4EA72E;
   --color-border: #ffffff;
   --color-note: #f5f5f5;
-  --font-size-large: clamp(4rem, 8vw, 6rem);
-  --font-size-medium: clamp(1.5rem, 4vw, 5rem);
-  --font-size-small: clamp(1rem, 3vw, 4rem);
+  /* ヘッダ */
+  --font-size-large: clamp(4rem, 8vw, 7.2rem);
+  /* 次 */
+  --font-size-medium: clamp(2.5rem, 4vw, 6.5rem);
+  /* ヘッダの音声案内 */
+  --font-size-small: clamp(2rem, 3vw, 5.5rem);
+  /* 上段の上段 */
+  --font-size-responsive-large: clamp(1.8rem, 4.8vw, 7.2rem);
+  /* 上段の下段と下段の上段 */
+  --font-size-responsive-medium: clamp(1.5rem, 4.0vw, 6.0rem);
+  /* 下段の下段 */
+  --font-size-responsive-small: clamp(1.2rem, 3.6vw, 5.0rem);
 }
 
 html, body {
@@ -51,7 +60,7 @@ html, body {
 .schedule-row.primary .time,
 .schedule-row.primary .supplier,
 .schedule-row.primary .lane-number {
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-responsive-large);
 }
 
 .schedule-row.primary .preparation,
@@ -61,14 +70,46 @@ html, body {
 .schedule-row.secondary .time,
 .schedule-row.secondary .supplier,
 .schedule-row.secondary .lane-number {
-  font-size: var(--font-size-medium);
+  font-size: var(--font-size-responsive-medium);
 }
 
 .schedule-row.secondary .preparation,
 .schedule-row.secondary .details,
 .schedule-row.secondary .yard,
 .schedule-row.secondary .note {
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-responsive-small);
+}
+
+/* テキストの改行を防ぐための追加スタイル */
+.schedule-row .supplier {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.schedule-row .time {
+  white-space: nowrap;
+}
+
+.schedule-row .lane-number {
+  white-space: nowrap;
+  display: inline-block;
+  margin-left: 0.1rem;
+  margin-right: 0.1rem;
+  flex-shrink: 0;
+  min-width: fit-content;
+}
+
+.schedule-row .lane-indicators {
+  white-space: nowrap;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.1rem;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 /* 文字色 */
@@ -100,17 +141,25 @@ html, body {
 }
 
 .next-indicator {
-  width: 5rem;
-  height: 5rem;
+  width: 8rem;
+  height: 8rem;
   border: 4px solid var(--color-orange);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-orange);
-  font-size: 1.8rem;
+  font-size: var(--font-size-medium);
   font-weight: 700;
   letter-spacing: 0.1em;
+}
+
+.placeholder {
+  color: var(--color-note);
+  font-size: var(--font-size-responsive-medium);
+  text-align: center;
+  padding: 1rem;
+  background: transparent;
 }
 
 @media (max-width: 1024px) {
@@ -128,5 +177,30 @@ html, body {
 
   .footer {
     padding: 1rem 1.5rem 1.5rem;
+  }
+}
+
+/* より細かいレスポンシブ対応 */
+@media (max-width: 768px) {
+  :root {
+    --font-size-responsive-large: clamp(1.8rem, 4vw, 4rem);
+    --font-size-responsive-medium: clamp(1.4rem, 3vw, 3rem);
+    --font-size-responsive-small: clamp(1rem, 2vw, 2.5rem);
+  }
+  
+  .main {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --font-size-responsive-large: clamp(1.2rem, 3vw, 2.5rem);
+    --font-size-responsive-medium: clamp(1rem, 2.5vw, 2rem);
+    --font-size-responsive-small: clamp(0.8rem, 1.5vw, 1.5rem);
+  }
+  
+  .main {
+    padding: 0.5rem;
   }
 }

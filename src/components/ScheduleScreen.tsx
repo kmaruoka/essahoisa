@@ -80,7 +80,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes(); // 分単位で現在時刻を取得
     
-    return entries.filter(entry => {
+    const filtered = entries.filter(entry => {
       if (!entry.arrivalTime) return false;
       
       // 到着時刻を分単位に変換
@@ -95,12 +95,54 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         return arrivalTime >= currentTime; // 通常は現在時刻以降のみ
       }
     });
+
+    // 日をまたぐ場合、翌日の最初の便も含める
+    if (filtered.length === 0 || (currentTime >= 1380 && filtered.length < 3)) {
+      const nextDayEntries = entries.filter(entry => {
+        if (!entry.arrivalTime) return false;
+        const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
+        const arrivalTime = hours * 60 + minutes;
+        return arrivalTime < 360; // 6時前の便
+      });
+      
+      // 翌日の便を追加（重複を避ける）
+      const existingTimes = new Set(filtered.map(e => e.arrivalTime));
+      const additionalEntries = nextDayEntries.filter(e => !existingTimes.has(e.arrivalTime));
+      return [...filtered, ...additionalEntries];
+    }
+
+    return filtered;
   }, [entries]);
   
   const displayCountRaw = monitor.displayEntryCount ?? 1;
   const mainCount = Math.max(1, displayCountRaw);
   const mainEntries = filteredEntries.slice(0, mainCount);
-  const nextEntry = filteredEntries.length > mainCount ? filteredEntries[mainCount] : undefined;
+  
+  // 次の便を取得（現在の便が最終便の場合は翌日の最初の便を表示）
+  const nextEntry = useMemo(() => {
+    if (filteredEntries.length > mainCount) {
+      return filteredEntries[mainCount];
+    }
+    
+    // 現在の便が最終便の場合、翌日の最初の便を探す
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    
+    // 翌日の早朝の便を探す
+    const nextDayEntries = entries.filter(entry => {
+      if (!entry.arrivalTime) return false;
+      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
+      const arrivalTime = hours * 60 + minutes;
+      return arrivalTime < 360; // 6時前の便
+    });
+    
+    // 翌日の便の中で最も早いものを返す
+    if (nextDayEntries.length > 0) {
+      return nextDayEntries[0];
+    }
+    
+    return undefined;
+  }, [filteredEntries, mainCount, entries]);
 
   const [spokenEntries, setSpokenEntries] = useState<Set<string>>(new Set());
   const [userInteracted, setUserInteracted] = useState(false);
@@ -293,14 +335,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         )}
         {SPEECH_SUPPORTED && monitor.hasAudio && !userInteracted && (
           <Col className="header-note">
-            ※ 音声案内を有効にするには、ページをクリックしてください。
-            <button 
-              className="btn btn-sm btn-primary ms-2" 
-              onClick={() => setUserInteracted(true)}
-              style={{ fontSize: '0.8em' }}
-            >
-              音声を有効にする
-            </button>
+            ※ 音声案内を有効にするには、画面のどこかをクリックしてください。
           </Col>
         )}
       </Row>

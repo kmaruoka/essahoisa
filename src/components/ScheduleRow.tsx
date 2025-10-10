@@ -45,9 +45,9 @@ export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant }) => {
         </Col>
         <Col md={3}>
           {entry.note && <span className="note">　{entry.note}</span>}
-        {variant === 'secondary' && entry.restriction && (
-          <Col md={3} className="restriction-note text-end">{entry.restriction}ああ</Col>
-        )}
+          {variant === 'secondary' && entry.restriction && (
+            <span className="restriction-note text-end">{entry.restriction}</span>
+          )}
         </Col>
       </Row>
     </Container>
