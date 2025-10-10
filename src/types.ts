@@ -10,6 +10,7 @@ export interface ScheduleEntry {
   lane?: string;
   supplierReading?: string;
   materialReading?: string;
+  restriction?: string;
 }
 
 export interface ScheduleFile {
@@ -35,6 +36,7 @@ export interface MonitorConfig {
   speechRate?: number;
   speechPitch?: number;
   speechLang?: string;
+  speechTimings?: number[]; // 入線時間の何分前に音声案内するか（分単位）
 }
 
 export interface AppConfig {

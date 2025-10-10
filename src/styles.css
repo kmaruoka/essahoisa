@@ -2,142 +2,101 @@
   font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
   color-scheme: dark;
   --color-background: #000000;
-  --color-header-bg: #0b1d46;
+  --color-header-bg: #156082;
   --color-header-text: #ffffff;
-  --color-orange: #ff8c00;
-  --color-green: #59c173;
-  --color-border: #404040;
+  --color-orange: #E97132;
+  --color-green: #4EA72E;
+  --color-border: #ffffff;
   --color-note: #f5f5f5;
+  --font-size-large: clamp(4rem, 8vw, 6rem);
+  --font-size-medium: clamp(1.5rem, 4vw, 5rem);
+  --font-size-small: clamp(1rem, 3vw, 4rem);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
+html, body {
   margin: 0;
-  min-height: 100vh;
+  padding: 0;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background: var(--color-background);
   color: var(--color-note);
+  font-weight: 700;
 }
 
-a {
-  color: inherit;
-}
-
-.screen {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--color-background);
-  color: var(--color-note);
-}
-
-.header {
+.header,
+.footer {
   background: var(--color-header-bg);
   color: var(--color-header-text);
   padding: 0.25rem;
-  display: flex;
-  flex-direction: column;
+  /* Row 自体が flex なので不要 */
 }
 
 .header-title {
-  font-size: 6rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
+  font-size: var(--font-size-large);
   text-align: center;
 }
 
 .header-note {
-  font-size: 1.3rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-size: var(--font-size-small);
+  text-align: center;
 }
 
 .main {
-  flex: 1;
+  /* flex 系削除して余白だけ残す */
   padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.5rem;
 }
 
-.schedule-row {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
+/* フォントサイズ */
+.schedule-row.primary .time,
+.schedule-row.primary .supplier,
+.schedule-row.primary .lane-number {
+  font-size: var(--font-size-large);
 }
 
-.schedule-row.primary .time {
-  font-size: clamp(4rem, 7vw, 6rem);
-}
-
-.schedule-row.primary .supplier {
-  font-size: clamp(3rem, 6vw, 5rem);
-}
-
-.schedule-row.primary .lane,
 .schedule-row.primary .preparation,
-.schedule-row.primary .yard {
-  font-size: clamp(2.2rem, 4vw, 3rem);
+.schedule-row.primary .yard,
+.schedule-row.primary .details,
+.schedule-row.primary .note,
+.schedule-row.secondary .time,
+.schedule-row.secondary .supplier,
+.schedule-row.secondary .lane-number {
+  font-size: var(--font-size-medium);
 }
 
-.schedule-row.primary .note {
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
+.schedule-row.secondary .preparation,
+.schedule-row.secondary .details,
+.schedule-row.secondary .yard,
+.schedule-row.secondary .note {
+  font-size: var(--font-size-small);
 }
 
-.schedule-row .time {
-  min-width: 11rem;
-  color: var(--color-orange);
-  font-weight: 700;
-  text-align: right;
-}
-
-.schedule-row .content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
+/* 文字色 */
+.schedule-row .time,
 .schedule-row .supplier {
   color: var(--color-orange);
-  font-weight: 700;
 }
 
-.schedule-row .secondary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-
-.schedule-row .secondary span {
+.schedule-row .lane-number,
+.schedule-row .preparation,
+.schedule-row .details {
   color: var(--color-green);
-  font-weight: 600;
-  letter-spacing: 0.08em;
 }
 
 .schedule-row .note {
   color: var(--color-note);
-  font-weight: 500;
-  letter-spacing: 0.05em;
 }
 
 .divider {
   height: 1px;
   background: var(--color-border);
-  margin: 0 2rem;
+  margin: 0.5rem 2rem;
+  flex-shrink: 0;
 }
 
 .footer {
   background: var(--color-background);
-  padding: 1.2rem 2rem 2rem;
-}
-
-.footer-inner {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
+  padding: 2rem;
 }
 
 .next-indicator {
@@ -152,28 +111,6 @@ a {
   font-size: 1.8rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-}
-
-.schedule-row.secondary .time {
-  font-size: clamp(2.2rem, 4vw, 2.8rem);
-}
-
-.schedule-row.secondary .supplier {
-  font-size: clamp(2rem, 3.5vw, 2.6rem);
-}
-
-.schedule-row.secondary .secondary span {
-  font-size: clamp(1.4rem, 2.5vw, 1.8rem);
-}
-
-.schedule-row.secondary .note {
-  font-size: clamp(1.3rem, 2.3vw, 1.6rem);
-}
-
-.placeholder {
-  font-size: 2rem;
-  text-align: center;
-  opacity: 0.7;
 }
 
 @media (max-width: 1024px) {

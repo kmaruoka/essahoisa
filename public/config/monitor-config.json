@@ -13,11 +13,12 @@
       "refreshIntervalSeconds": 30,
       "displayEntryCount": 1,
       "headerNote": "東ゲートでの入線予定を表示しています",
-      "speechLang": "ja-JP"
+      "speechLang": "ja-JP",
+      "speechTimings": [10, 5, 0]
     },
     {
       "id": "2",
-      "title": "東置場",
+      "title": "東置場（音声なし）",
       "dataUrl": "/data/east.json",
       "sheetKey": "east",
       "hasAudio": false,
@@ -34,7 +35,8 @@
       "refreshIntervalSeconds": 30,
       "displayEntryCount": 1,
       "headerNote": "西ゲートでの入線予定を表示しています",
-      "speechLang": "ja-JP"
+      "speechLang": "ja-JP",
+      "speechTimings": [15, 5]
     }
   ]
 }
