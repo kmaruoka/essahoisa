@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScheduleScreen } from './components/ScheduleScreen';
+import { SplitScheduleScreen } from './components/SplitScheduleScreen';
 import type { AppConfig, MonitorConfig } from './types';
 
 const buildConfigUrl = (): string => {
@@ -71,6 +72,11 @@ export default function App() {
     return params.get('monitor') ?? config?.defaultMonitorId ?? config?.monitors[0]?.id ?? null;
   }, [config]);
 
+  const isSplitView = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('split') === 'true';
+  }, []);
+
   const monitor: MonitorConfig | undefined = useMemo(() => {
     console.log('monitor useMemo 実行:', { config, monitorId });
     if (!config || !monitorId) return undefined;
@@ -79,10 +85,28 @@ export default function App() {
     return found;
   }, [config, monitorId]);
 
+  const leftMonitor: MonitorConfig | undefined = useMemo(() => {
+    if (!config || !isSplitView) return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const leftId = params.get('left') ?? config?.monitors[0]?.id ?? null;
+    if (!leftId) return undefined;
+    return config.monitors.find((item) => item.id === leftId);
+  }, [config, isSplitView]);
+
+  const rightMonitor: MonitorConfig | undefined = useMemo(() => {
+    if (!config || !isSplitView) return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const rightId = params.get('right') ?? config?.monitors[1]?.id ?? null;
+    if (!rightId) return undefined;
+    return config.monitors.find((item) => item.id === rightId);
+  }, [config, isSplitView]);
+
   if (loading) {
     return (
       <div className="screen">
-        <div className="placeholder">設定を読み込み中...</div>
+        <div className="placeholder">
+          <div className="loading-spinner"></div>
+        </div>
       </div>
     );
   }
@@ -95,7 +119,34 @@ export default function App() {
     );
   }
 
-  if (!config || !monitor) {
+  if (!config) {
+    return (
+      <div className="screen">
+        <div className="placeholder">設定が見つかりません。</div>
+      </div>
+    );
+  }
+
+  // 左右分割表示の場合
+  if (isSplitView) {
+    if (!leftMonitor || !rightMonitor) {
+      return (
+        <div className="screen">
+          <div className="placeholder">
+            左右分割表示用のモニタ設定が見つかりません。
+            {!leftMonitor && <div>左側のモニタが見つかりません。</div>}
+            {!rightMonitor && <div>右側のモニタが見つかりません。</div>}
+          </div>
+        </div>
+      );
+    }
+
+    console.log('SplitScheduleScreen をレンダリング:', { leftMonitor, rightMonitor, config });
+    return <SplitScheduleScreen leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
+  }
+
+  // 通常の単一表示の場合
+  if (!monitor) {
     return (
       <div className="screen">
         <div className="placeholder">指定されたモニタIDの設定が見つかりません。</div>

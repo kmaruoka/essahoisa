@@ -5,22 +5,11 @@ import { ScheduleRow } from './ScheduleRow';
 import { formatSpeech } from '../utils/formatSpeech';
 import { Container, Row, Col } from 'react-bootstrap';
 
-interface ScheduleScreenProps {
-  monitor: MonitorConfig;
+interface SplitScheduleScreenProps {
+  leftMonitor: MonitorConfig;
+  rightMonitor: MonitorConfig;
   appConfig: AppConfig;
-  isSplitView?: boolean;
-  leftMonitor?: MonitorConfig;
-  rightMonitor?: MonitorConfig;
 }
-
-const toDisplayTime = (isoString?: string): string | undefined => {
-  if (!isoString) return undefined;
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return isoString;
-  const datePart = `${date.getFullYear()}/${`${date.getMonth() + 1}`.padStart(2, '0')}/${`${date.getDate()}`.padStart(2, '0')}`;
-  const timePart = date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  return `${datePart} ${timePart}`;
-};
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -65,7 +54,16 @@ const checkSpeechSynthesis = () => {
   });
 };
 
-export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
+// 単一のモニター用のコンポーネント
+const SingleMonitorDisplay = ({ 
+  monitor, 
+  appConfig, 
+  isLeft = true 
+}: { 
+  monitor: MonitorConfig; 
+  appConfig: AppConfig; 
+  isLeft?: boolean;
+}) => {
   const refreshIntervalMs = useMemo(() => {
     const intervalSeconds = monitor.refreshIntervalSeconds ?? appConfig.pollingIntervalSeconds ?? 30;
     return intervalSeconds * 1000;
@@ -189,7 +187,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
   useEffect(() => {
     checkSpeechSynthesis();
     
-    console.log('デバッグ音声再生チェック:', {
+    console.log(`デバッグ音声再生チェック (${isLeft ? '左' : '右'}):`, {
       hasAudio: monitor.hasAudio,
       SPEECH_SUPPORTED,
       userInteracted,
@@ -198,7 +196,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     });
 
     if (!monitor.hasAudio || !SPEECH_SUPPORTED || !userInteracted) {
-      console.log('音声再生スキップ:', { 
+      console.log(`音声再生スキップ (${isLeft ? '左' : '右'}):`, { 
         hasAudio: monitor.hasAudio, 
         SPEECH_SUPPORTED, 
         userInteracted 
@@ -206,23 +204,23 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
       return;
     }
     if (!mainEntries.length) {
-      console.log('メインエントリなし');
+      console.log(`メインエントリなし (${isLeft ? '左' : '右'})`);
       return;
     }
 
     const target = mainEntries[0];
     if (!target.id) {
-      console.log('ターゲットIDなし:', target);
+      console.log(`ターゲットIDなし (${isLeft ? '左' : '右'}):`, target);
       return;
     }
 
     // デバッグ用：リロード時に即座に音声再生
     const template = monitor.speechFormat ?? appConfig.speechFormat;
     const message = formatSpeech(template, target);
-    console.log('音声メッセージ:', { template, message, target });
+    console.log(`音声メッセージ (${isLeft ? '左' : '右'}):`, { template, message, target });
     
     if (!message.trim()) {
-      console.log('メッセージが空');
+      console.log(`メッセージが空 (${isLeft ? '左' : '右'})`);
       return;
     }
 
@@ -237,15 +235,15 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
       utterance.pitch = monitor.speechPitch ?? 1;
       utterance.lang = monitor.speechLang ?? 'ja-JP';
 
-      utterance.onstart = () => console.log('音声再生開始');
+      utterance.onstart = () => console.log(`音声再生開始 (${isLeft ? '左' : '右'})`);
       utterance.onend = async () => {
-        console.log('音声再生終了');
+        console.log(`音声再生終了 (${isLeft ? '左' : '右'})`);
         // 放送終了音声を再生
         await playBroadcastingEnd();
       };
-      utterance.onerror = (event) => console.error('音声再生エラー:', event);
+      utterance.onerror = (event) => console.error(`音声再生エラー (${isLeft ? '左' : '右'}):`, event);
 
-      console.log('音声再生開始:', { message, rate: utterance.rate, pitch: utterance.pitch, lang: utterance.lang });
+      console.log(`音声再生開始 (${isLeft ? '左' : '右'}):`, { message, rate: utterance.rate, pitch: utterance.pitch, lang: utterance.lang });
       
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
@@ -253,7 +251,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
 
     // 少し遅延させてから再生（ブラウザの制限回避）
     setTimeout(playSpeechWithBroadcasting, 100);
-  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, appConfig.speechFormat, mainEntries, userInteracted]);
+  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, appConfig.speechFormat, mainEntries, userInteracted, isLeft]);
 
   // 音声案内のタイミングチェック
   useEffect(() => {
@@ -297,13 +295,13 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
             utterance.pitch = monitor.speechPitch ?? 1;
             utterance.lang = monitor.speechLang ?? 'ja-JP';
 
-            utterance.onstart = () => console.log('音声再生開始');
+            utterance.onstart = () => console.log(`音声再生開始 (${isLeft ? '左' : '右'})`);
             utterance.onend = async () => {
-              console.log('音声再生終了');
+              console.log(`音声再生終了 (${isLeft ? '左' : '右'})`);
               // 放送終了音声を再生
               await playBroadcastingEnd();
             };
-            utterance.onerror = (event) => console.error('音声再生エラー:', event);
+            utterance.onerror = (event) => console.error(`音声再生エラー (${isLeft ? '左' : '右'}):`, event);
 
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
@@ -314,10 +312,10 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         }
       });
     });
-  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, monitor.speechTimings, appConfig.speechFormat, displayEntries, spokenEntries]);
+  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, monitor.speechTimings, appConfig.speechFormat, displayEntries, spokenEntries, isLeft]);
 
   return (
-    <Container fluid className="screen">
+    <Container fluid className={`screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`}>
       <Row className="header">
         <Col className="header-title">{monitor.title}</Col>
         {!SPEECH_SUPPORTED && monitor.hasAudio && (
@@ -364,6 +362,29 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
               )}
             </Col>
           </Row>
+        </Col>
+      </Row>
+    </Container>
+  );
+};
+
+export const SplitScheduleScreen = ({ leftMonitor, rightMonitor, appConfig }: SplitScheduleScreenProps) => {
+  return (
+    <Container fluid className="split-screen-container">
+      <Row className="split-screen-row">
+        <Col lg={6} md={12} className="split-panel">
+          <SingleMonitorDisplay 
+            monitor={leftMonitor} 
+            appConfig={appConfig} 
+            isLeft={true}
+          />
+        </Col>
+        <Col lg={6} md={12} className="split-panel">
+          <SingleMonitorDisplay 
+            monitor={rightMonitor} 
+            appConfig={appConfig} 
+            isLeft={false}
+          />
         </Col>
       </Row>
     </Container>
