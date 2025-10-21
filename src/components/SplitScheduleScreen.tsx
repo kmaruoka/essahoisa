@@ -4,6 +4,7 @@ import type { AppConfig, MonitorConfig } from '../types';
 import { ScheduleRow } from './ScheduleRow';
 import { formatSpeech } from '../utils/formatSpeech';
 import { Container, Row, Col } from 'react-bootstrap';
+import { useAudioPlayback } from '../hooks/useAudioPlayback';
 
 interface SplitScheduleScreenProps {
   leftMonitor: MonitorConfig;
@@ -12,47 +13,6 @@ interface SplitScheduleScreenProps {
 }
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-// MP3ファイル再生機能
-const playMp3File = (filePath: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(filePath);
-    audio.onended = () => resolve();
-    audio.onerror = (error) => reject(error);
-    audio.play().catch(reject);
-  });
-};
-
-// 音声再生前後のMP3ファイル再生
-const playBroadcastingStart = async (): Promise<void> => {
-  try {
-    await playMp3File('/data/broadcasting-start1.mp3');
-    console.log('放送開始音声再生完了');
-  } catch (error) {
-    console.error('放送開始音声再生エラー:', error);
-  }
-};
-
-const playBroadcastingEnd = async (): Promise<void> => {
-  try {
-    await playMp3File('/data/broadcasting-end1.mp3');
-    console.log('放送終了音声再生完了');
-  } catch (error) {
-    console.error('放送終了音声再生エラー:', error);
-  }
-};
-
-// デバッグ用：音声合成APIの状態確認
-const checkSpeechSynthesis = () => {
-  if (typeof window === 'undefined') return;
-  
-  console.log('音声合成API状態:', {
-    speechSynthesis: !!window.speechSynthesis,
-    voices: window.speechSynthesis?.getVoices?.()?.length || 0,
-    speaking: window.speechSynthesis?.speaking || false,
-    pending: window.speechSynthesis?.pending || false
-  });
-};
 
 // 単一のモニター用のコンポーネント
 const SingleMonitorDisplay = ({ 
@@ -139,15 +99,18 @@ const SingleMonitorDisplay = ({
   // 下段（次の便）
   const nextEntry = displayEntries[1];
 
-  const [spokenEntries, setSpokenEntries] = useState<Set<string>>(new Set());
   const [userInteracted, setUserInteracted] = useState(false);
   const [autoEnableFailed, setAutoEnableFailed] = useState(false);
 
-  useEffect(() => {
-    setSpokenEntries(new Set());
-    setUserInteracted(false);
-    setAutoEnableFailed(false);
-  }, [monitor.id]);
+  // 音声再生フックを使用
+  useAudioPlayback({
+    monitor,
+    appConfig,
+    displayEntries,
+    mainEntries,
+    userInteracted,
+    isLeft
+  });
 
   // ユーザーインタラクション検知と自動有効化の試行
   useEffect(() => {
@@ -194,136 +157,7 @@ const SingleMonitorDisplay = ({
     };
   }, [monitor.hasAudio, SPEECH_SUPPORTED]);
 
-  // デバッグ用：リロード時に上段データの音声再生
-  useEffect(() => {
-    checkSpeechSynthesis();
-    
-    console.log(`デバッグ音声再生チェック (${isLeft ? '左' : '右'}):`, {
-      hasAudio: monitor.hasAudio,
-      SPEECH_SUPPORTED,
-      userInteracted,
-      mainEntriesLength: mainEntries.length,
-      mainEntries: mainEntries
-    });
 
-    if (!monitor.hasAudio || !SPEECH_SUPPORTED || !userInteracted) {
-      console.log(`音声再生スキップ (${isLeft ? '左' : '右'}):`, { 
-        hasAudio: monitor.hasAudio, 
-        SPEECH_SUPPORTED, 
-        userInteracted 
-      });
-      return;
-    }
-    if (!mainEntries.length) {
-      console.log(`メインエントリなし (${isLeft ? '左' : '右'})`);
-      return;
-    }
-
-    const target = mainEntries[0];
-    if (!target.id) {
-      console.log(`ターゲットIDなし (${isLeft ? '左' : '右'}):`, target);
-      return;
-    }
-
-    // デバッグ用：リロード時に即座に音声再生
-    const template = monitor.speechFormat ?? appConfig.speechFormat;
-    const message = formatSpeech(template, target);
-    console.log(`音声メッセージ (${isLeft ? '左' : '右'}):`, { template, message, target });
-    
-    if (!message.trim()) {
-      console.log(`メッセージが空 (${isLeft ? '左' : '右'})`);
-      return;
-    }
-
-    // 音声再生の前後にMP3ファイルを再生
-    const playSpeechWithBroadcasting = async () => {
-      // 放送開始音声を再生
-      await playBroadcastingStart();
-      
-      // 音声合成のイベントリスナーを追加
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.rate = monitor.speechRate ?? 1;
-      utterance.pitch = monitor.speechPitch ?? 1;
-      utterance.lang = monitor.speechLang ?? 'ja-JP';
-
-      utterance.onstart = () => console.log(`音声再生開始 (${isLeft ? '左' : '右'})`);
-      utterance.onend = async () => {
-        console.log(`音声再生終了 (${isLeft ? '左' : '右'})`);
-        // 放送終了音声を再生
-        await playBroadcastingEnd();
-      };
-      utterance.onerror = (event) => console.error(`音声再生エラー (${isLeft ? '左' : '右'}):`, event);
-
-      console.log(`音声再生開始 (${isLeft ? '左' : '右'}):`, { message, rate: utterance.rate, pitch: utterance.pitch, lang: utterance.lang });
-      
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    };
-
-    // 少し遅延させてから再生（ブラウザの制限回避）
-    setTimeout(playSpeechWithBroadcasting, 100);
-  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, appConfig.speechFormat, mainEntries, userInteracted, isLeft]);
-
-  // 音声案内のタイミングチェック
-  useEffect(() => {
-    if (!monitor.hasAudio || !SPEECH_SUPPORTED) {
-      return;
-    }
-    if (!displayEntries.length) {
-      return;
-    }
-
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const speechTimings = monitor.speechTimings ?? [0]; // デフォルトは入線時刻
-
-    displayEntries.forEach(entry => {
-      if (!entry.id || !entry.arrivalTime) return;
-
-      // 到着時刻を分単位に変換
-      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-      const arrivalTime = hours * 60 + minutes;
-
-      speechTimings.forEach(timingMinutes => {
-        const speechTime = arrivalTime - timingMinutes;
-        const speechKey = `${entry.id}-${timingMinutes}`;
-        
-        // 音声案内のタイミングが来たかチェック
-        if (currentTime >= speechTime && currentTime < speechTime + 1 && !spokenEntries.has(speechKey)) {
-          const template = monitor.speechFormat ?? appConfig.speechFormat;
-          const message = formatSpeech(template, entry);
-          if (!message.trim()) {
-            return;
-          }
-
-          // 音声再生の前後にMP3ファイルを再生
-          const playSpeechWithBroadcasting = async () => {
-            // 放送開始音声を再生
-            await playBroadcastingStart();
-            
-            const utterance = new SpeechSynthesisUtterance(message);
-            utterance.rate = monitor.speechRate ?? 1;
-            utterance.pitch = monitor.speechPitch ?? 1;
-            utterance.lang = monitor.speechLang ?? 'ja-JP';
-
-            utterance.onstart = () => console.log(`音声再生開始 (${isLeft ? '左' : '右'})`);
-            utterance.onend = async () => {
-              console.log(`音声再生終了 (${isLeft ? '左' : '右'})`);
-              // 放送終了音声を再生
-              await playBroadcastingEnd();
-            };
-            utterance.onerror = (event) => console.error(`音声再生エラー (${isLeft ? '左' : '右'}):`, event);
-
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(utterance);
-          };
-
-          playSpeechWithBroadcasting();
-          setSpokenEntries(prev => new Set([...prev, speechKey]));
-        }
-      });
-    });
-  }, [monitor.hasAudio, monitor.speechFormat, monitor.speechRate, monitor.speechPitch, monitor.speechLang, monitor.speechTimings, appConfig.speechFormat, displayEntries, spokenEntries, isLeft]);
 
   return (
     <Container fluid className={`screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`}>

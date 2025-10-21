@@ -2,41 +2,36 @@
   "configVersion": "1.0",
   "defaultMonitorId": "1",
   "pollingIntervalSeconds": 30,
-  "speechFormat": "{supplierReading}がにゅうせんします。{materialReading}のじゅんびをおねがいします。",
+  "speechFormat": "{supplierReading}、がにゅうせんします。{materialReading}、のじゅんびをおねがいします。",
   "monitors": [
     {
       "id": "1",
       "title": "東置場",
       "dataUrl": "/data/east.json",
-      "sheetKey": "east",
       "hasAudio": true,
       "refreshIntervalSeconds": 30,
-      "displayEntryCount": 1,
-      "headerNote": "東ゲートでの入線予定を表示しています",
       "speechLang": "ja-JP",
-      "speechTimings": [10, 5, 0]
-    },
-    {
-      "id": "2",
-      "title": "東置場（音声なし）",
-      "dataUrl": "/data/east.json",
-      "sheetKey": "east",
-      "hasAudio": false,
-      "refreshIntervalSeconds": 30,
-      "displayEntryCount": 1,
-      "headerNote": "音声案内なしのモニタ表示"
+      "audioSettings": {
+        "timings": [120, 93, 81, 73, 71, 62, 54, 34, 5, 0]
+      }
     },
     {
       "id": "3",
       "title": "西置場",
       "dataUrl": "/data/west.json",
-      "sheetKey": "west",
       "hasAudio": true,
       "refreshIntervalSeconds": 30,
-      "displayEntryCount": 1,
-      "headerNote": "西ゲートでの入線予定を表示しています",
       "speechLang": "ja-JP",
-      "speechTimings": [15, 5]
+      "audioSettings": {
+        "timings": [15, 5]
+      }
+    },
+    {
+      "id": "3",
+      "title": "東置場（音声なし）",
+      "dataUrl": "/data/east.json",
+      "hasAudio": false,
+      "refreshIntervalSeconds": 30
     }
   ]
 }

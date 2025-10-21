@@ -22,20 +22,21 @@ export interface ScheduleFile {
   entries: ScheduleEntry[];
 }
 
+export interface AudioSettings {
+  timings: number[]; // 入線時間の何分前に音声案内するか（分単位）
+}
+
 export interface MonitorConfig {
   id: string;
   title: string;
   dataUrl: string;
-  sheetKey?: string;
   hasAudio: boolean;
   refreshIntervalSeconds?: number;
-  displayEntryCount?: number;
-  headerNote?: string;
   speechFormat?: string;
   speechRate?: number;
   speechPitch?: number;
   speechLang?: string;
-  speechTimings?: number[]; // 入線時間の何分前に音声案内するか（分単位）
+  audioSettings?: AudioSettings;
 }
 
 export interface AppConfig {

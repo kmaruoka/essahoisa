@@ -139,6 +139,7 @@ html, body {
   gap: 0.5rem;
   align-items: center;
   width: 100%;
+  padding-bottom: 0;
 }
 
 .schedule-row .note {
@@ -189,7 +190,7 @@ html, body {
 .divider {
   height: 1px;
   background: var(--color-border);
-  margin: 0.5rem 2rem;
+  margin: 0rem;
   flex-shrink: 0;
 }
 
