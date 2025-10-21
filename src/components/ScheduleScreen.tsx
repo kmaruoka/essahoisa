@@ -93,35 +93,46 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     });
   }, [data]);
   
-  // 表示対象の便を特定し、arrivalTimeが小さい順に2便を取得
+  // 現在時刻から最も近い未来の2件を取得
   const displayEntries = useMemo(() => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes(); // 分単位で現在時刻を取得
     
-    // 1. 表示対象の便を特定 - シンプルに現在時刻以降の便を取得
-    const targetEntries = entries.filter(entry => {
+    // 現在時刻から最も近い未来の便を2件取得
+    const futureEntries = entries.filter(entry => {
       if (!entry.arrivalTime) return false;
       
       const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
       const arrivalTime = hours * 60 + minutes;
       
-      // 現在時刻以降の便を取得（日をまたぐ対応）
-      if (currentTime >= 1380) { // 23:00以降
-        return arrivalTime >= currentTime || arrivalTime < 360; // 6時前も含める
-      } else {
-        return arrivalTime >= currentTime;
-      }
+      return arrivalTime >= currentTime;
     });
 
-    // 2. arrivalTimeが小さい順にソートして最初の2便を取得
-    const sorted = targetEntries.sort((a, b) => {
-      const [aHours, aMinutes] = a.arrivalTime.split(':').map(Number);
-      const [bHours, bMinutes] = b.arrivalTime.split(':').map(Number);
-      const aTime = aHours * 60 + aMinutes;
-      const bTime = bHours * 60 + bMinutes;
-      return aTime - bTime;
+    // 現在時刻以降の便が2件以上ある場合は、そのまま2件を返す
+    if (futureEntries.length >= 2) {
+      return futureEntries.slice(0, 2);
+    }
+
+    // 現在時刻以降の便が1件の場合は、翌日の最初の便を追加
+    if (futureEntries.length === 1) {
+      const nextDayEntry = entries.find(entry => {
+        if (!entry.arrivalTime) return false;
+        const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
+        const arrivalTime = hours * 60 + minutes;
+        return arrivalTime < currentTime;
+      });
+      return nextDayEntry ? [futureEntries[0], nextDayEntry] : futureEntries;
+    }
+
+    // 現在時刻以降の便がない場合は、翌日の最初の2件を返す
+    const nextDayEntries = entries.filter(entry => {
+      if (!entry.arrivalTime) return false;
+      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
+      const arrivalTime = hours * 60 + minutes;
+      return arrivalTime < currentTime;
     });
-    return sorted.slice(0, 2); // 最大2便
+    
+    return nextDayEntries.slice(0, 2);
   }, [entries]);
   
   // 上段（メイン表示）
