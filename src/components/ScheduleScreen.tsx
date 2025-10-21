@@ -82,7 +82,7 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         const arrivalTime = hours * 60 + minutes;
         return arrivalTime < currentTime;
       });
-      return nextDayEntry ? [futureEntries[0], nextDayEntry] : futureEntries;
+      return nextDayEntry ? [futureEntries[0], nextDayEntry] : [futureEntries[0], futureEntries[0]];
     }
 
     // 現在時刻以降の便がない場合は、翌日の最初の2件を返す
@@ -93,7 +93,14 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
       return arrivalTime < currentTime;
     });
     
-    return nextDayEntries.slice(0, 2);
+    if (nextDayEntries.length >= 2) {
+      return nextDayEntries.slice(0, 2);
+    } else if (nextDayEntries.length === 1) {
+      return [nextDayEntries[0], nextDayEntries[0]];
+    } else {
+      // データが全くない場合は空配列を返す
+      return [];
+    }
   }, [entries]);
   
   // 上段（メイン表示）
@@ -204,11 +211,10 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
           <Row className="footer-inner">
             <Col xs="auto" className="next-indicator">次</Col>
             <Col>
-              {nextEntry ? (
-                <ScheduleRow entry={nextEntry} variant="secondary" />
-              ) : (
-                <div className="placeholder">次の入線予定はありません</div>
-              )}
+              {loading && <div className="placeholder">データを読み込み中...</div>}
+              {!loading && error && <div className="placeholder">{error}</div>}
+              {!loading && !error && !nextEntry && <div className="placeholder">データがありません</div>}
+              {!loading && !error && nextEntry && <ScheduleRow entry={nextEntry} variant="secondary" />}
             </Col>
           </Row>
         </Col>

@@ -5,43 +5,58 @@ import { Container, Row, Col } from 'react-bootstrap';
 interface ScheduleRowProps {
   entry: ScheduleEntry;
   variant: 'primary' | 'secondary';
+  isSplitView?: boolean;
+  showNextIndicator?: boolean;
 }
 
-export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant }) => {
+export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView = false, showNextIndicator = false }) => {
   return (
     <Container fluid className={`schedule-row ${variant}`}>
-      {/* 時刻と仕入先の行（レスポンシブ対応） */}
-      <Row className="main-line align-items-baseline">
-        <Col md={2} lg={2} className="time">{entry.arrivalTime || '-'}</Col>
-        <Col md={10} lg={10} className="supplier">
-          {entry.supplierName ? (
-            entry.supplierName.split('\n').map((line, index) => (
+      {/* 1行目：時刻（オレンジ色）、仕入れ先名（オレンジ色） */}
+      {isSplitView ? (
+        <>
+          <Row className="mt-1 align-items-baseline">
+            {showNextIndicator && (
+              <Col md="auto" lg="auto" className="next-indicator">次</Col>
+            )}
+            <Col md={showNextIndicator ? 10 : 12} lg={showNextIndicator ? 10 : 12} className="time">
+              {entry.arrivalTime || '-'}
+            </Col>
+          </Row>
+          <Row className="mt-2">
+            <Col md={12} lg={12} className="supplier">
+              {entry.supplierName.split('\n').map((line, index) => (
+                <div key={index} className="supplier-text">{line}</div>
+              ))}
+            </Col>
+          </Row>
+        </>
+      ) : (
+        <Row className="mt-1 align-items-baseline">
+          <Col md={2} lg={2} className="time">
+            {entry.arrivalTime || '-'}
+          </Col>
+          <Col md={10} lg={10} className="supplier">
+            {entry.supplierName.split('\n').map((line, index) => (
               <div key={index} className="supplier-text">{line}</div>
-            ))
-          ) : (
-            <div className="supplier-text">未定</div>
-          )}
-        </Col>
-      </Row>
+            ))}
+          </Col>
+        </Row>
+      )}
       
-      {/* 緑文字項目の行（横幅いっぱいに表示） */}
-      <Row className="details">
+      {/* 2-3行目：緑色の文字を結合して改行表示 */}
+      <Row className="mt-1">
         <Col md={2} lg={2}></Col>
-        <Col md={10} lg={10} className="details-content">
-          <div className="details-line">
-            {entry.preparation && <span className="preparation">{entry.preparation}</span>}
-            {entry.yard && <span className="yard">　{entry.yard}</span>}
-          </div>
-        </Col>
-      </Row>
-      
-      {/* 最下行：レーン番号と白文字 */}
-      <Row className="bottom-line">
-        <Col md={2} lg={2}></Col>
-        <Col md={10} lg={10} className="bottom-content">
-          <div className="bottom-line">
-            {entry.lane && <span className="lane">　{entry.lane}</span>}
-            {entry.note && <span className="note">　{entry.note}</span>}
+        <Col md={10} lg={10}>
+          <div className="green-text">
+            {[
+              entry.preparation && entry.yard ? `${entry.preparation}　${entry.yard}` : 
+              entry.preparation || entry.yard || '',
+              entry.lane || ''
+            ].filter(Boolean).join('\n')}
+            {entry.note && (
+              <span className="note-text">　{entry.note}</span>
+            )}
           </div>
         </Col>
       </Row>

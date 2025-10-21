@@ -191,17 +191,16 @@ const SingleMonitorDisplay = ({
           {loading && <div className="placeholder">データを読み込み中...</div>}
           {!loading && error && <div className="placeholder">{error}</div>}
           {!loading && !error && mainEntries.length === 0 && <div className="placeholder">データがありません</div>}
-          {!loading && !error && mainEntries.map((entry) => <ScheduleRow key={entry.id} entry={entry} variant="primary" />)}
+          {!loading && !error && mainEntries.map((entry) => <ScheduleRow key={entry.id} entry={entry} variant="primary" isSplitView={true} />)}
         </Col>
       </Row>
       <Row className="divider" style={{ flexShrink: 0 }} />
       <Row className="footer align-items-center" style={{ minHeight: '30vh' }}>
         <Col>
           <Row className="footer-inner">
-            <Col xs="auto" className="next-indicator">次</Col>
             <Col>
               {nextEntry ? (
-                <ScheduleRow entry={nextEntry} variant="secondary" />
+                <ScheduleRow entry={nextEntry} variant="secondary" isSplitView={true} showNextIndicator={true} />
               ) : (
                 <div className="placeholder">次の入線予定はありません</div>
               )}
