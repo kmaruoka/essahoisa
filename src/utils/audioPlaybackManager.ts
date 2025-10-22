@@ -57,9 +57,23 @@ export const hasBeenPlayed = (entryId: string, timingMinutes: number): boolean =
     return false;
   }
   
+  // 現在の日付を取得
+  const now = new Date();
+  const today = now.toDateString();
+  
+  // 今日の記録のみを対象とする
+  const todayRecords = entryRecords.filter(record => {
+    const playedDate = new Date(record.playedAt);
+    return playedDate.toDateString() === today;
+  });
+  
+  if (todayRecords.length === 0) {
+    return false;
+  }
+  
   // より小さいタイミング（より近いタイミング）が再生済みの場合は、
   // より大きいタイミング（より遠いタイミング）も再生済みとみなす
-  const minPlayedTiming = Math.min(...entryRecords.map(record => record.timingMinutes));
+  const minPlayedTiming = Math.min(...todayRecords.map(record => record.timingMinutes));
   return timingMinutes >= minPlayedTiming;
 };
 

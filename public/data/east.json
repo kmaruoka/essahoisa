@@ -251,6 +251,32 @@
       "supplierReading": "たかたなびん",
       "materialReading": "せいひんてぃー",
       "id": "east-200-020"
+    },
+    {
+      "number": "21",
+      "arrivalTime": "15:30",
+      "finishTime": "15:35",
+      "supplierName": "光徳便（高棚便空箱含む）\n①②③④⑤⑥⑦⑧⑨⑩⑪⑫",
+      "preparation": "複数社",
+      "note": "右表参考",
+      "yard": "東西あり",
+      "lane": "②③⑨⑩",
+      "supplierReading": "たかたなびん",
+      "materialReading": "せいひんてぃー",
+      "id": "east-200-021"
+    },
+    {
+      "number": "22",
+      "arrivalTime": "15:35",
+      "finishTime": "15:40",
+      "supplierName": "光徳便（高棚便空箱含む）\n①②③④⑤⑥⑦⑧⑨⑩⑪⑫",
+      "preparation": "複数社",
+      "note": "右表参考",
+      "yard": "東西あり",
+      "lane": "②③⑨⑩",
+      "supplierReading": "たかたなびん",
+      "materialReading": "せいひんてぃー",
+      "id": "east-200-022"
     }
   ]
 }
