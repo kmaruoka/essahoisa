@@ -14,6 +14,42 @@ interface SplitScheduleScreenProps {
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+// エラーモニタ用のコンポーネント
+const ErrorMonitorDisplay = ({ 
+  errorMessage, 
+  isLeft = true,
+  appConfig
+}: { 
+  errorMessage: string; 
+  isLeft?: boolean;
+  appConfig: AppConfig;
+}) => {
+  // 30秒間隔のリロード機能
+  useEffect(() => {
+    const intervalSeconds = appConfig.pollingIntervalSeconds ?? 30;
+    const intervalMs = intervalSeconds * 1000;
+    
+    const interval = setInterval(() => {
+      window.location.reload();
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [appConfig.pollingIntervalSeconds]);
+
+  return (
+    <Container fluid className={`screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`}>
+      <Row className="header">
+        <Col className="header-title">エラー</Col>
+      </Row>
+      <Row className="main align-items-center justify-content-center" style={{ minHeight: '80vh' }}>
+        <Col>
+          <div className="placeholder">{errorMessage}</div>
+        </Col>
+      </Row>
+    </Container>
+  );
+};
+
 // 単一のモニター用のコンポーネント
 const SingleMonitorDisplay = ({ 
   monitor, 
@@ -217,18 +253,34 @@ export const SplitScheduleScreen = ({ leftMonitor, rightMonitor, appConfig }: Sp
     <Container fluid className="split-screen-container">
       <Row className="split-screen-row">
         <Col lg={6} md={12} className="split-panel">
-          <SingleMonitorDisplay 
-            monitor={leftMonitor} 
-            appConfig={appConfig} 
-            isLeft={true}
-          />
+          {leftMonitor ? (
+            <SingleMonitorDisplay 
+              monitor={leftMonitor} 
+              appConfig={appConfig} 
+              isLeft={true}
+            />
+          ) : (
+            <ErrorMonitorDisplay 
+              errorMessage="モニタ設定が見つかりません。"
+              isLeft={true}
+              appConfig={appConfig}
+            />
+          )}
         </Col>
         <Col lg={6} md={12} className="split-panel">
-          <SingleMonitorDisplay 
-            monitor={rightMonitor} 
-            appConfig={appConfig} 
-            isLeft={false}
-          />
+          {rightMonitor ? (
+            <SingleMonitorDisplay 
+              monitor={rightMonitor} 
+              appConfig={appConfig} 
+              isLeft={false}
+            />
+          ) : (
+            <ErrorMonitorDisplay 
+              errorMessage="モニタ設定が見つかりません。"
+              isLeft={false}
+              appConfig={appConfig}
+            />
+          )}
         </Col>
       </Row>
     </Container>

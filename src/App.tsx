@@ -129,18 +129,6 @@ export default function App() {
 
   // 左右分割表示の場合
   if (isSplitView) {
-    if (!leftMonitor || !rightMonitor) {
-      return (
-        <div className="screen">
-          <div className="placeholder">
-            左右分割表示用のモニタ設定が見つかりません。
-            {!leftMonitor && <div>左側のモニタが見つかりません。</div>}
-            {!rightMonitor && <div>右側のモニタが見つかりません。</div>}
-          </div>
-        </div>
-      );
-    }
-
     console.log('SplitScheduleScreen をレンダリング:', { leftMonitor, rightMonitor, config });
     return <SplitScheduleScreen leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
   }
