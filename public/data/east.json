@@ -2,7 +2,7 @@
   "meta": {
     "sheetName": "東側時間順 ",
     "sourceFile": "発車データ.xlsx",
-    "generatedAt": "2025-10-10T14:08:22.807Z",
+    "generatedAt": "2025-10-22T02:39:18.694Z",
     "configKey": "east"
   },
   "entries": [
@@ -10,7 +10,7 @@
       "number": "1",
       "arrivalTime": "3:50",
       "finishTime": "3:55",
-      "supplierName": "豊川加藤1便\n①②③④⑤⑥⑦⑧⑨⑩⑪⑫",
+      "supplierName": "豊川加藤1便",
       "preparation": "単独",
       "yard": "東側のみ",
       "lane": "④or⑤",
@@ -203,7 +203,7 @@
     },
     {
       "number": "17",
-      "arrivalTime": "16:00",
+      "arrivalTime": "15:10",
       "finishTime": "16:05",
       "supplierName": "日伸工業",
       "preparation": "単独",
@@ -211,13 +211,13 @@
       "lane": "⑥",
       "supplierReading": "にっしんこうぎょう",
       "materialReading": "せいひんきゅー",
-      "id": "east-1600-017"
+      "id": "east-1600-017a"
     },
     {
       "number": "18",
       "arrivalTime": "20:00",
       "finishTime": "20:05",
-      "supplierName": "高棚便\nああああ",
+      "supplierName": "高棚便",
       "preparation": "複数社",
       "note": "右表参考",
       "yard": "東西あり",
@@ -229,13 +229,13 @@
     {
       "number": "19",
       "arrivalTime": "23:10",
-      "finishTime": "23:30",
-      "supplierName": "光徳便（高棚便空箱含む）\n①②③④⑤⑥⑦⑧⑨⑩⑪⑫",
+      "finishTime": "23:15",
+      "supplierName": "高棚便",
       "preparation": "複数社",
       "note": "右表参考",
       "yard": "東西あり",
       "lane": "②③⑨⑩",
-      "supplierReading": "こうとくびん、たかたなびんからばこふくむ",
+      "supplierReading": "たかたなびん",
       "materialReading": "せいひんえす",
       "id": "east-2310-019"
     },
@@ -243,7 +243,7 @@
       "number": "20",
       "arrivalTime": "2:00",
       "finishTime": "2:05",
-      "supplierName": "日伸工業",
+      "supplierName": "高棚便",
       "preparation": "複数社",
       "note": "右表参考",
       "yard": "東西あり",

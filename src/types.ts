@@ -31,7 +31,6 @@ export interface MonitorConfig {
   title: string;
   dataUrl: string;
   hasAudio: boolean;
-  refreshIntervalSeconds?: number;
   speechFormat?: string;
   speechRate?: number;
   speechPitch?: number;
@@ -39,10 +38,16 @@ export interface MonitorConfig {
   audioSettings?: AudioSettings;
 }
 
+export interface DisplaySettings {
+  showBeforeMinutes: number; // arrivalTimeの何分前から表示するか
+  emptyTimeMessage: string; // 何も表示されない時間帯の文言
+}
+
 export interface AppConfig {
   configVersion?: string;
   defaultMonitorId?: string;
   pollingIntervalSeconds?: number;
   speechFormat: string;
+  displaySettings?: DisplaySettings;
   monitors: MonitorConfig[];
 }

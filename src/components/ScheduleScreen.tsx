@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useScheduleData } from '../hooks/useScheduleData';
+import { useSimplePolling } from '../hooks/useSimplePolling';
 import type { AppConfig, MonitorConfig } from '../types';
 import { ScheduleRow } from './ScheduleRow';
 import { formatSpeech } from '../utils/formatSpeech';
 import { Container, Row, Col } from 'react-bootstrap';
-import { useAudioPlayback } from '../hooks/useAudioPlayback';
 
 interface ScheduleScreenProps {
   monitor: MonitorConfig;
@@ -26,16 +25,14 @@ const toDisplayTime = (isoString?: string): string | undefined => {
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
-  
-  const refreshIntervalMs = useMemo(() => {
-    const intervalSeconds = monitor.refreshIntervalSeconds ?? appConfig.pollingIntervalSeconds ?? 30;
-    return intervalSeconds * 1000;
-  }, [monitor.refreshIntervalSeconds, appConfig.pollingIntervalSeconds]);
+  // シンプルポーリングを使用（データ取得と音声チェックを統合）
+  const { startPolling, data, loading, error } = useSimplePolling(monitor, appConfig);
 
-  const { data, loading, error } = useScheduleData({
-    url: monitor.dataUrl,
-    refreshIntervalMs,
-  });
+  // ポーリング開始
+  useEffect(() => {
+    const stopPolling = startPolling();
+    return stopPolling;
+  }, [startPolling]);
 
   const entries = useMemo(() => {
     if (!data?.entries) return [];
@@ -59,49 +56,39 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes(); // 分単位で現在時刻を取得
     
-    // 現在時刻から最も近い未来の便を2件取得
+    // 設定から表示開始時間を取得（デフォルト30分前）
+    const showBeforeMinutes = appConfig.displaySettings?.showBeforeMinutes ?? 30;
+    
+    // 現在時刻以降の便を取得（当日の便のみ）
     const futureEntries = entries.filter(entry => {
       if (!entry.arrivalTime) return false;
       
       const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
       const arrivalTime = hours * 60 + minutes;
       
-      return arrivalTime >= currentTime;
+      // 現在時刻以降の便のみを対象とする（当日の便のみ）
+      const isAfterCurrentTime = arrivalTime >= currentTime;
+      
+      // 到着予定時刻がshowBeforeMinutes分以内の便のみを表示
+      const timeDiff = arrivalTime - currentTime;
+      const shouldShow = isAfterCurrentTime && timeDiff <= showBeforeMinutes;
+      
+      return shouldShow;
     });
 
-    // 現在時刻以降の便が2件以上ある場合は、そのまま2件を返す
+    // 表示対象の便が2件以上ある場合は、そのまま2件を返す
     if (futureEntries.length >= 2) {
       return futureEntries.slice(0, 2);
     }
 
-    // 現在時刻以降の便が1件の場合は、翌日の最初の便を追加
+    // 表示対象の便が1件の場合は、その便のみを返す
     if (futureEntries.length === 1) {
-      const nextDayEntry = entries.find(entry => {
-        if (!entry.arrivalTime) return false;
-        const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-        const arrivalTime = hours * 60 + minutes;
-        return arrivalTime < currentTime;
-      });
-      return nextDayEntry ? [futureEntries[0], nextDayEntry] : [futureEntries[0], futureEntries[0]];
+      return [futureEntries[0]];
     }
 
-    // 現在時刻以降の便がない場合は、翌日の最初の2件を返す
-    const nextDayEntries = entries.filter(entry => {
-      if (!entry.arrivalTime) return false;
-      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-      const arrivalTime = hours * 60 + minutes;
-      return arrivalTime < currentTime;
-    });
-    
-    if (nextDayEntries.length >= 2) {
-      return nextDayEntries.slice(0, 2);
-    } else if (nextDayEntries.length === 1) {
-      return [nextDayEntries[0], nextDayEntries[0]];
-    } else {
-      // データが全くない場合は空配列を返す
-      return [];
-    }
-  }, [entries]);
+    // 表示対象の便がない場合は空配列を返す（emptyTimeMessageを表示する）
+    return [];
+  }, [entries, appConfig.displaySettings]);
   
   // 上段（メイン表示）
   const mainEntries = displayEntries.slice(0, 1);
@@ -109,64 +96,27 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
   // 下段（次の便）
   const nextEntry = displayEntries[1];
 
-  const [userInteracted, setUserInteracted] = useState(false);
-  const [autoEnableFailed, setAutoEnableFailed] = useState(false);
-
-  // 音声再生フックを使用
-  useAudioPlayback({
-    monitor,
-    appConfig,
-    displayEntries,
-    mainEntries,
-    userInteracted
-  });
-
-  // ユーザーインタラクション検知と自動有効化の試行
+  // 音声API自動有効化（ユーザーインタラクション不要）
   useEffect(() => {
-    console.log('=== ユーザーインタラクション検知useEffect実行 ===');
-    const handleUserInteraction = () => {
-      console.log('ユーザーインタラクション検知');
-      setUserInteracted(true);
-    };
-
-    // 自動有効化の試行（ブラウザによっては動作する場合がある）
-    const tryAutoEnable = () => {
-      if (monitor.hasAudio && SPEECH_SUPPORTED) {
-        // 無音の音声を再生してAPIを有効化
-        const silentUtterance = new SpeechSynthesisUtterance('');
-        silentUtterance.volume = 0;
-        silentUtterance.onstart = () => {
-          console.log('音声API自動有効化成功');
-          setUserInteracted(true);
-        };
-        silentUtterance.onerror = () => {
-          console.log('音声API自動有効化失敗 - ユーザーインタラクションが必要');
-          setAutoEnableFailed(true);
-        };
-        
-        try {
-          window.speechSynthesis.speak(silentUtterance);
-        } catch (e) {
-          console.log('音声API自動有効化エラー:', e);
-          setAutoEnableFailed(true);
-        }
+    if (monitor.hasAudio && SPEECH_SUPPORTED) {
+      console.log('音声API自動有効化開始');
+      // 無音の音声を再生してAPIを有効化
+      const silentUtterance = new SpeechSynthesisUtterance('');
+      silentUtterance.volume = 0;
+      silentUtterance.onstart = () => {
+        console.log('音声API自動有効化成功');
+      };
+      silentUtterance.onerror = () => {
+        console.log('音声API自動有効化失敗');
+      };
+      
+      try {
+        window.speechSynthesis.speak(silentUtterance);
+      } catch (e) {
+        console.log('音声API自動有効化エラー:', e);
       }
-    };
-
-    // ページロード後少し遅延してから自動有効化を試行
-    const timer = setTimeout(tryAutoEnable, 1000);
-
-    document.addEventListener('click', handleUserInteraction);
-    document.addEventListener('keydown', handleUserInteraction);
-    document.addEventListener('touchstart', handleUserInteraction);
-
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('click', handleUserInteraction);
-      document.removeEventListener('keydown', handleUserInteraction);
-      document.removeEventListener('touchstart', handleUserInteraction);
-    };
-  }, [monitor.hasAudio, SPEECH_SUPPORTED]);
+    }
+  }, [monitor.hasAudio]);
 
 
 
@@ -177,31 +127,16 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
         {!SPEECH_SUPPORTED && monitor.hasAudio && (
           <Col className="header-note">※ このブラウザーでは音声合成が利用できません。</Col>
         )}
-        {SPEECH_SUPPORTED && monitor.hasAudio && !userInteracted && autoEnableFailed && (
-          <Col className="header-note">
-            <button 
-              className="audio-enable-button"
-              onClick={() => setUserInteracted(true)}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: 'var(--font-size-small)'
-              }}
-            >
-              🔊 音声案内を有効にする
-            </button>
-          </Col>
-        )}
       </Row>
       <Row className="main align-items-center" style={{ minHeight: '50vh' }}>
         <Col>
           {loading && <div className="placeholder">データを読み込み中...</div>}
           {!loading && error && <div className="placeholder">{error}</div>}
-          {!loading && !error && mainEntries.length === 0 && <div className="placeholder">データがありません</div>}
+          {!loading && !error && mainEntries.length === 0 && (
+            <div className="placeholder">
+              {appConfig.displaySettings?.emptyTimeMessage ?? "入線予定はありません"}
+            </div>
+          )}
           {!loading && !error && mainEntries.map((entry) => <ScheduleRow key={entry.id} entry={entry} variant="primary" />)}
         </Col>
       </Row>
@@ -213,7 +148,11 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
             <Col>
               {loading && <div className="placeholder">データを読み込み中...</div>}
               {!loading && error && <div className="placeholder">{error}</div>}
-              {!loading && !error && !nextEntry && <div className="placeholder">データがありません</div>}
+              {!loading && !error && !nextEntry && (
+                <div className="placeholder">
+                  {appConfig.displaySettings?.emptyTimeMessage ?? "入線予定はありません"}
+                </div>
+              )}
               {!loading && !error && nextEntry && <ScheduleRow entry={nextEntry} variant="secondary" />}
             </Col>
           </Row>

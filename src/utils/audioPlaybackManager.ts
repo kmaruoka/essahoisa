@@ -20,12 +20,29 @@ export const getPlaybackRecords = (): PlaybackRecord[] => {
   }
 };
 
-// 再生完了記録を保存
+// 再生完了記録を保存（最後の再生タイミングのみ保存）
 export const savePlaybackRecord = (record: PlaybackRecord): void => {
   try {
     const records = getPlaybackRecords();
-    const newRecords = [...records, record];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+    const entryRecords = records.filter(r => r.entryId === record.entryId);
+    
+    // 既存の記録がある場合、最後の再生タイミングのみを保持
+    if (entryRecords.length > 0) {
+      const lastTiming = Math.min(...entryRecords.map(r => r.timingMinutes));
+      const newLastTiming = Math.min(lastTiming, record.timingMinutes);
+      
+      // 既存の記録を削除
+      const filteredRecords = records.filter(r => r.entryId !== record.entryId);
+      
+      // 最後の再生タイミングの記録のみを保存
+      const newRecord = { ...record, timingMinutes: newLastTiming };
+      const newRecords = [...filteredRecords, newRecord];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+    } else {
+      // 初回記録の場合はそのまま保存
+      const newRecords = [...records, record];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+    }
   } catch (error) {
     console.error('ローカルストレージへの再生記録保存エラー:', error);
   }
@@ -34,9 +51,16 @@ export const savePlaybackRecord = (record: PlaybackRecord): void => {
 // 特定の便の特定のタイミングで再生済みかチェック
 export const hasBeenPlayed = (entryId: string, timingMinutes: number): boolean => {
   const records = getPlaybackRecords();
-  return records.some(record => 
-    record.entryId === entryId && record.timingMinutes === timingMinutes
-  );
+  const entryRecords = records.filter(record => record.entryId === entryId);
+  
+  if (entryRecords.length === 0) {
+    return false;
+  }
+  
+  // より小さいタイミング（より近いタイミング）が再生済みの場合は、
+  // より大きいタイミング（より遠いタイミング）も再生済みとみなす
+  const minPlayedTiming = Math.min(...entryRecords.map(record => record.timingMinutes));
+  return timingMinutes >= minPlayedTiming;
 };
 
 // 特定の便の特定のタイミングの再生記録を取得

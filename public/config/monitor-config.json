@@ -3,16 +3,19 @@
   "defaultMonitorId": "1",
   "pollingIntervalSeconds": 30,
   "speechFormat": "{supplierReading}、がにゅうせんします。{materialReading}、のじゅんびをおねがいします。",
+  "displaySettings": {
+    "showBeforeMinutes": 30,
+    "emptyTimeMessage": "しばらく入線予定はありません"
+  },
   "monitors": [
     {
-      "id": "11",
+      "id": "1",
       "title": "東置場",
       "dataUrl": "/data/east.json",
       "hasAudio": true,
-      "refreshIntervalSeconds": 30,
       "speechLang": "ja-JP",
       "audioSettings": {
-        "timings": [120, 93, 81, 73, 71, 62, 54, 34, 5, 0]
+        "timings": [30, 25, 20, 15, 10, 5, 0]
       }
     },
     {
@@ -20,18 +23,16 @@
       "title": "西置場",
       "dataUrl": "/data/west.json",
       "hasAudio": true,
-      "refreshIntervalSeconds": 30,
       "speechLang": "ja-JP",
       "audioSettings": {
-        "timings": [15, 5]
+        "timings": [30, 25, 20, 18, 15, 10, 5, 0]
       }
     },
     {
       "id": "3",
       "title": "東置場（音声なし）",
       "dataUrl": "/data/east.json",
-      "hasAudio": false,
-      "refreshIntervalSeconds": 30
+      "hasAudio": false
     }
   ]
 }
