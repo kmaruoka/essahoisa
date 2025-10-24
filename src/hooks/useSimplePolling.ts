@@ -7,7 +7,7 @@ import {
   clearPlaybackRecords
 } from '../utils/audioPlaybackManager';
 import { formatSpeech } from '../utils/formatSpeech';
-import { startPlayback, endPlayback } from '../utils/audioPlaybackState';
+import { startPlayback, endPlayback, isEntryAlreadyPlayed, addToGlobalAudioQueue, processGlobalAudioQueue } from '../utils/audioPlaybackState';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -74,8 +74,24 @@ const playBroadcastingEnd = async (): Promise<void> => {
 // グローバルな音声再生状態管理（重複防止）
 let globalAudioPlaying = false;
 let currentPlayingEntryId: string | null = null;
-let audioQueue: Array<{entry: ScheduleEntry, timing: number, config: AppConfig, monitor: MonitorConfig}> = [];
+let audioQueue: Array<{entry: ScheduleEntry, timing: number, config: AppConfig, monitor: MonitorConfig, isMainEntry: boolean}> = [];
 let isProcessingAudioQueue = false;
+
+// 音声再生の優先順位を決定する関数
+const getAudioPriority = (entry: ScheduleEntry, monitor: MonitorConfig, isMainEntry: boolean): number => {
+  // 第1優先順位：入線時刻の小さい順
+  const [hours, minutes] = entry.arrivalTime?.split(':').map(Number) || [0, 0];
+  const arrivalTimeMinutes = hours * 60 + minutes;
+  
+  // 第2優先順位：上段・下段の順（上段=0, 下段=1）
+  const segmentPriority = isMainEntry ? 0 : 1;
+  
+  // 第3優先順位：左・右の順（左=0, 右=1）
+  const sidePriority = monitor.id === "1" ? 0 : 1;
+  
+  // 優先順位を組み合わせ（入線時刻が最重要）
+  return arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
+};
 
 // 音声キュー処理関数
 const processAudioQueue = async () => {
@@ -84,6 +100,21 @@ const processAudioQueue = async () => {
   }
   
   isProcessingAudioQueue = true;
+  
+  // 優先順位に基づいてキューをソート
+  audioQueue.sort((a, b) => {
+    const priorityA = getAudioPriority(a.entry, a.monitor, a.isMainEntry);
+    const priorityB = getAudioPriority(b.entry, b.monitor, b.isMainEntry);
+    return priorityA - priorityB;
+  });
+  
+  console.log('音声再生優先順位:', audioQueue.map(item => ({
+    entry: item.entry.supplierName,
+    arrivalTime: item.entry.arrivalTime,
+    monitor: item.monitor.title,
+    isMainEntry: item.isMainEntry,
+    priority: getAudioPriority(item.entry, item.monitor, item.isMainEntry)
+  })));
   
   while (audioQueue.length > 0) {
     const { entry, timing, config, monitor } = audioQueue.shift()!;
@@ -95,9 +126,9 @@ const processAudioQueue = async () => {
 
 // 音声再生関数
 const playAudioDirectly = async (entry: ScheduleEntry, timing: number, currentConfig: AppConfig, monitor: MonitorConfig) => {
-  // 同じ便の重複再生のみ防止
-  if (currentPlayingEntryId === entry.id) {
-    console.log(`音声再生スキップ: 同じ便が既に再生中 (entryId=${entry.id})`);
+  // 同じ便の重複再生を完全に防止
+  if (currentPlayingEntryId === entry.id || isEntryAlreadyPlayed(entry.id)) {
+    console.log(`音声再生スキップ: 同じ便が既に再生中または再生済み (entryId=${entry.id})`);
     return;
   }
 
@@ -271,6 +302,12 @@ const unifiedPolling = async (
     for (const entry of displayEntries) {
       if (!entry.id || !entry.arrivalTime) continue;
 
+      // 既に再生済みの便はスキップ
+      if (isEntryAlreadyPlayed(entry.id)) {
+        console.log(`エントリスキップ: 既に再生済み (entryId=${entry.id})`);
+        continue;
+      }
+
       const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
       const arrivalTime = hours * 60 + minutes;
       
@@ -306,12 +343,26 @@ const unifiedPolling = async (
 
       if (targetTiming !== null) {
         console.log(`  選択されたタイミング: ${targetTiming}分（最小値）`);
-        // 音声キューに追加して重複実行を防止
-        audioQueue.push({ entry, timing: targetTiming, config, monitor });
-        // 非同期でキュー処理を実行
+        // グローバル音声キューに追加
+        const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
+        const speechText = formatSpeech(config.speechFormat, entry);
+        
+        addToGlobalAudioQueue({
+          entryId: entry.id,
+          supplierName: entry.supplierName,
+          arrivalTime: entry.arrivalTime || '',
+          monitorId: monitor.id,
+          monitorTitle: monitor.title,
+          isMainEntry,
+          timing: targetTiming,
+          speechText,
+          speechLang: monitor.speechLang || 'ja-JP'
+        });
+        
+        // 非同期でグローバル音声キュー処理を実行
         setTimeout(() => {
-          processAudioQueue().catch(error => {
-            console.error(`音声キュー処理エラー:`, error);
+          processGlobalAudioQueue().catch(error => {
+            console.error(`グローバル音声キュー処理エラー:`, error);
           });
         }, 0);
         // 連続再生のためbreakを削除
