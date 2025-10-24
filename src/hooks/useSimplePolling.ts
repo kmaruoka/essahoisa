@@ -7,6 +7,7 @@ import {
   clearPlaybackRecords
 } from '../utils/audioPlaybackManager';
 import { formatSpeech } from '../utils/formatSpeech';
+import { startPlayback, endPlayback } from '../utils/audioPlaybackState';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -104,6 +105,9 @@ const playAudioDirectly = async (entry: ScheduleEntry, timing: number, currentCo
   globalAudioPlaying = true;
   currentPlayingEntryId = entry.id;
 
+  // 音声再生状態を開始
+  startPlayback(entry.id, entry.arrivalTime || '');
+
   try {
     await playBroadcastingStart();
     
@@ -136,6 +140,9 @@ const playAudioDirectly = async (entry: ScheduleEntry, timing: number, currentCo
   } finally {
     globalAudioPlaying = false;
     currentPlayingEntryId = null;
+    
+    // 音声再生状態を終了
+    endPlayback();
   }
 };
 

@@ -517,3 +517,20 @@ html, body {
     font-size: var(--font-size-responsive-small);
   }
 }
+
+/* 音声再生中の文字点滅アニメーション */
+@keyframes textBlinking {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.schedule-row.audio-playing {
+  animation: textBlinking 1s ease-in-out infinite;
+}

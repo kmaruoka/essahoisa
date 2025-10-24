@@ -1,6 +1,8 @@
 import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 import type { ScheduleEntry } from '../types';
 import { Container, Row, Col } from 'react-bootstrap';
+import { addPlaybackStateListener, isEntryPlaying } from '../utils/audioPlaybackState';
 
 interface ScheduleRowProps {
   entry: ScheduleEntry;
@@ -10,8 +12,30 @@ interface ScheduleRowProps {
 }
 
 export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView = false, showNextIndicator = false }) => {
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+
+  // 音声再生状態を監視
+  useEffect(() => {
+    const cleanup = addPlaybackStateListener((state) => {
+      const entryPlaying = isEntryPlaying(entry.id);
+      console.log(`エントリ ${entry.id} の音声再生状態:`, {
+        entryPlaying,
+        currentEntryId: state.currentEntryId,
+        isPlaying: state.isPlaying
+      });
+      setIsAudioPlaying(entryPlaying);
+    });
+
+    // 初回状態をチェック
+    const initialEntryPlaying = isEntryPlaying(entry.id);
+    console.log(`エントリ ${entry.id} の初期状態:`, { entryPlaying: initialEntryPlaying });
+    setIsAudioPlaying(initialEntryPlaying);
+
+    return cleanup;
+  }, [entry.id]);
+
   return (
-    <Container fluid className={`schedule-row ${variant}`}>
+    <Container fluid className={`schedule-row ${variant} ${isAudioPlaying ? 'audio-playing' : ''}`}>
       {/* 1行目：時刻（オレンジ色）、仕入れ先名（オレンジ色） */}
       {isSplitView ? (
         <>
