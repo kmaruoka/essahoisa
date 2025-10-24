@@ -1,6 +1,6 @@
 export interface ScheduleEntry {
   id: string;
-  number?: string;
+  order?: string;
   arrivalTime: string;
   finishTime?: string;
   supplierName: string;
@@ -39,7 +39,7 @@ export interface MonitorConfig {
 }
 
 export interface DisplaySettings {
-  showBeforeMinutes: number; // arrivalTimeの何分前から表示するか
+  beforeMinutes: number; // arrivalTimeの何分前から表示するか
   emptyTimeMessage: string; // 何も表示されない時間帯の文言
 }
 

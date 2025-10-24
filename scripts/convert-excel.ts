@@ -4,7 +4,7 @@ import process from 'node:process';
 import XLSX from 'xlsx';
 
 type FieldName =
-  | 'number'
+  | 'order'
   | 'arrivalTime'
   | 'finishTime'
   | 'supplierName'
@@ -246,7 +246,22 @@ const main = () => {
         entry.id = createEntryId(sheetKey, arrivalTime, index);
         entry.arrivalTime = arrivalTime;
 
-        entries.push(entry);
+        // フィールド順序を調整（idを先頭に、numberをorderに変更）
+        const orderedEntry: Record<string, string> = {
+          id: entry.id,
+          ...(entry.order && { order: entry.order }),
+          arrivalTime: entry.arrivalTime,
+          ...(entry.finishTime && { finishTime: entry.finishTime }),
+          supplierName: entry.supplierName,
+          ...(entry.preparation && { preparation: entry.preparation }),
+          ...(entry.note && { note: entry.note }),
+          ...(entry.yard && { yard: entry.yard }),
+          ...(entry.lane && { lane: entry.lane }),
+          ...(entry.supplierReading && { supplierReading: entry.supplierReading }),
+          ...(entry.materialReading && { materialReading: entry.materialReading })
+        };
+
+        entries.push(orderedEntry);
         row += offset - 1;
       }
 

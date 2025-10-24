@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScheduleScreen } from './components/ScheduleScreen';
 import { SplitScheduleScreen } from './components/SplitScheduleScreen';
+import { getStorageDebugInfo } from './utils/audioPlaybackManager';
 import type { AppConfig, MonitorConfig } from './types';
 
 const buildConfigUrl = (): string => {
@@ -42,6 +43,40 @@ export default function App() {
 
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  // デバッグ用: キーボードショートカットでストレージ情報を表示
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Ctrl+Shift+D でデバッグ情報を表示
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        console.log('=== デバッグ情報表示 ===');
+        getStorageDebugInfo();
+      }
+      // Ctrl+Shift+A で音声再生デバッグ情報を表示
+      if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+        console.log('=== 音声再生デバッグ情報 ===');
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        console.log('現在時刻:', now.toLocaleTimeString());
+        console.log('現在時刻（分）:', currentTime);
+        
+        // 10:30の便の情報を表示
+        const arrivalTime = 10 * 60 + 30; // 10:30 = 630分
+        console.log('10:30便の到着時刻（分）:', arrivalTime);
+        
+        // 各タイミングでの音声再生時刻を計算
+        const timings = [30, 25, 20, 15, 10, 5, 0];
+        timings.forEach(timing => {
+          const speechTime = arrivalTime - timing;
+          const shouldPlay = currentTime >= speechTime;
+          console.log(`timing=${timing}分: 音声時刻=${speechTime}分 (${Math.floor(speechTime/60)}:${String(speechTime%60).padStart(2,'0')}), 再生対象=${shouldPlay}`);
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
   }, []);
 
   useEffect(() => {
@@ -130,6 +165,13 @@ export default function App() {
   // 左右分割表示の場合
   if (isSplitView) {
     console.log('SplitScheduleScreen をレンダリング:', { leftMonitor, rightMonitor, config });
+    if (!leftMonitor || !rightMonitor) {
+      return (
+        <div className="screen">
+          <div className="placeholder">モニタ設定が見つかりません。</div>
+        </div>
+      );
+    }
     return <SplitScheduleScreen leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
   }
 

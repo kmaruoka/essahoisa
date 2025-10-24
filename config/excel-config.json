@@ -1,9 +1,9 @@
 {
   "headerRows": 3,
   "terminationColumn": "arrivalTime",
-  "twoSupplierJoiner": "　",
+  "twoSupplierJoiner": "\n",
   "columns": {
-    "number": "B",
+    "order": "B",
     "arrivalTime": "C",
     "finishTime": "D",
     "supplierName": "E",
