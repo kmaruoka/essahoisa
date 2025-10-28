@@ -34,6 +34,7 @@ interface GlobalAudioQueueItem {
 
 const globalAudioQueue: GlobalAudioQueueItem[] = [];
 let isProcessingGlobalQueue = false;
+const processedEntries = new Set<string>(); // 処理済みまたは処理中のエントリを追跡
 
 // 状態変更のリスナー
 type StateChangeListener = (state: AudioPlaybackState) => void;
@@ -106,13 +107,22 @@ export const clearPlayedEntries = () => {
 
 // グローバル音声キューに追加
 export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
-  // 既に同じentryIdの音声がキューに存在する場合はスキップ
-  const existingItem = globalAudioQueue.find(queueItem => queueItem.entryId === item.entryId);
-  if (existingItem) {
+  // 既に処理済みまたは処理中の場合はスキップ
+  if (processedEntries.has(item.entryId)) {
+    logger.debug(`音声キューに既に存在するためスキップ: ${item.supplierName} (${item.arrivalTime})`);
     return;
   }
   
+  // 既に同じentryIdの音声がキューに存在する場合はスキップ
+  const existingItem = globalAudioQueue.find(queueItem => queueItem.entryId === item.entryId);
+  if (existingItem) {
+    logger.debug(`音声キューに既に存在するためスキップ: ${item.supplierName} (${item.arrivalTime})`);
+    return;
+  }
+  
+  logger.info(`音声キューに追加: ${item.supplierName} (${item.arrivalTime}) - ${item.monitorTitle}`);
   globalAudioQueue.push(item);
+  processedEntries.add(item.entryId);
 };
 
 // グローバル音声キューの優先順位を計算
@@ -378,6 +388,8 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   } finally {
     // 音声再生状態を終了
     endPlayback();
+    // 処理済みエントリから削除（次回の再生のために）
+    processedEntries.delete(item.entryId);
   }
 };
 

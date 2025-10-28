@@ -191,9 +191,7 @@ const unifiedPolling = async (
       }
 
       if (targetTiming !== null) {
-        const actualSpeechTime = arrivalTime - targetTiming;
-        const actualSpeechTimeFormatted = `${Math.floor(actualSpeechTime / 60).toString().padStart(2, '0')}:${(actualSpeechTime % 60).toString().padStart(2, '0')}`;
-        logger.info(`  → 音声再生対象: タイミング${targetTiming}分 (実際の再生時刻: ${actualSpeechTimeFormatted})`);
+        logger.debug(`  → 音声再生対象: タイミング${targetTiming}分`);
         // グローバル音声キューに追加
         const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
         const speechText = formatSpeech(config.speechFormat, entry);
@@ -236,6 +234,73 @@ const logMemoryUsage = () => {
   }
 };
 
+// シングルトンポーリング管理
+class PollingManager {
+  private static instance: PollingManager;
+  private pollingStates = new Map<string, {
+    isRunning: boolean;
+    timeoutId: number | null;
+    callbacks: Set<() => void>;
+  }>();
+
+  static getInstance(): PollingManager {
+    if (!PollingManager.instance) {
+      PollingManager.instance = new PollingManager();
+    }
+    return PollingManager.instance;
+  }
+
+  isRunning(monitorKey: string): boolean {
+    return this.pollingStates.has(monitorKey) && this.pollingStates.get(monitorKey)!.isRunning;
+  }
+
+  startPolling(monitorKey: string, callback: () => void): () => void {
+    if (this.isRunning(monitorKey)) {
+      logger.debug(`モニター ${monitorKey} のポーリングは既に実行中です`);
+      const state = this.pollingStates.get(monitorKey)!;
+      state.callbacks.add(callback);
+      return () => {
+        state.callbacks.delete(callback);
+        if (state.callbacks.size === 0) {
+          this.stopPolling(monitorKey);
+        }
+      };
+    }
+
+    logger.debug(`シンプルポーリング開始: モニター ${monitorKey}`);
+    this.pollingStates.set(monitorKey, {
+      isRunning: true,
+      timeoutId: null,
+      callbacks: new Set([callback])
+    });
+
+    return () => {
+      this.stopPolling(monitorKey);
+    };
+  }
+
+  private stopPolling(monitorKey: string): void {
+    const state = this.pollingStates.get(monitorKey);
+    if (state) {
+      if (state.timeoutId) {
+        clearTimeout(state.timeoutId);
+      }
+      this.pollingStates.delete(monitorKey);
+      logger.debug(`シンプルポーリング停止: モニター ${monitorKey}`);
+    }
+  }
+
+  setTimeout(monitorKey: string, callback: () => void, delay: number): void {
+    const state = this.pollingStates.get(monitorKey);
+    if (state && state.isRunning) {
+      const timeoutId = window.setTimeout(callback, delay);
+      state.timeoutId = timeoutId;
+    }
+  }
+}
+
+const pollingManager = PollingManager.getInstance();
+
 // シンプルポーリングフック（setTimeoutの連鎖）
 export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true) => {
   const [data, setData] = useState<ScheduleFile | null>(null);
@@ -245,12 +310,28 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, i
   const [currentMonitor, setCurrentMonitor] = useState<MonitorConfig>(monitor);
   const [displayEntries, setDisplayEntries] = useState<ScheduleFile['entries']>([]);
   
-  let timeoutId: number | null = null;
-  let isRunning = false;
+  const monitorKey = monitor.id;
 
   const startPolling = () => {
-    logger.debug('シンプルポーリング開始');
-    
+    const scheduleNext = async () => {
+      if (!pollingManager.isRunning(monitorKey)) return;
+      
+      const pollStartTime = new Date();
+      logger.debug(`ポーリング実行開始: ${pollStartTime.getHours().toString().padStart(2, '0')}:${pollStartTime.getMinutes().toString().padStart(2, '0')}:${pollStartTime.getSeconds().toString().padStart(2, '0')}`);
+      
+      try {
+        // メモリ使用量をログ出力
+        logMemoryUsage();
+        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible);
+      } catch (error) {
+        logger.error('ポーリングエラー:', error);
+      }
+      
+      if (pollingManager.isRunning(monitorKey)) {
+        pollingManager.setTimeout(monitorKey, scheduleNext, 10000);
+      }
+    };
+
     // 非同期でローカルストレージの初期化処理を実行（ポーリングをブロックしない）
     setTimeout(() => {
       try {
@@ -273,39 +354,14 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, i
         clearPlaybackRecords();
       }
     }, 0);
-    
-    isRunning = true;
-    
-    const scheduleNext = async () => {
-      if (!isRunning) return;
-      
-      const pollStartTime = new Date();
-      logger.debug(`ポーリング実行開始: ${pollStartTime.getHours().toString().padStart(2, '0')}:${pollStartTime.getMinutes().toString().padStart(2, '0')}:${pollStartTime.getSeconds().toString().padStart(2, '0')}`);
-      
-      try {
-        // メモリ使用量をログ出力
-        logMemoryUsage();
-        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible);
-      } catch (error) {
-        logger.error('ポーリングエラー:', error);
-      }
-      
-      if (isRunning) {
-        timeoutId = window.setTimeout(scheduleNext, 10000); // 30秒から10秒に短縮
-      }
-    };
+
+    // ポーリングマネージャーを使用してポーリングを開始
+    const cleanup = pollingManager.startPolling(monitorKey, scheduleNext);
     
     // 初回実行
     scheduleNext();
     
-    return () => {
-      logger.debug('シンプルポーリング停止');
-      isRunning = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-    };
+    return cleanup;
   };
 
   return { startPolling, data, loading, error, currentConfig, currentMonitor, displayEntries };

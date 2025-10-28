@@ -15,7 +15,7 @@
       "hasAudio": true,
       "speechLang": "ja-JP",
       "audioSettings": {
-        "timings": [300, 25, 20, 15, 10, 5, 0]
+        "timings": [300, 50, 25, 20, 15, 10, 5, 0]
       }
     },
     {
@@ -25,7 +25,7 @@
       "hasAudio": true,
       "speechLang": "ja-JP",
       "audioSettings": {
-        "timings": [300, 25, 20, 18, 15, 10, 5, 0]
+        "timings": [300, 50, 25, 20, 18, 15, 10, 5, 0]
       }
     }
   ]
