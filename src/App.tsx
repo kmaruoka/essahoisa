@@ -66,36 +66,44 @@ export default function App() {
       });
   }, []);
 
-  const monitorId = useMemo(() => {
+  // URLパラメータからmonitorのIDを取得（複数指定可能）
+  const monitorIds = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('monitor') ?? config?.defaultMonitorId ?? config?.monitors[0]?.id ?? null;
+    const monitorParams = params.getAll('monitor');
+    
+    // monitorパラメータが指定されていない場合はデフォルトを使用
+    if (monitorParams.length === 0) {
+      return [config?.defaultMonitorId ?? config?.monitors[0]?.id ?? null].filter(Boolean);
+    }
+    
+    return monitorParams.filter(Boolean);
   }, [config]);
 
+  // 分割表示かどうかを判定（monitorパラメータが2つ以上の場合）
   const isSplitView = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('split') === 'true';
-  }, []);
+    return monitorIds.length >= 2;
+  }, [monitorIds]);
 
+  // 単一表示用のmonitor
   const monitor: MonitorConfig | undefined = useMemo(() => {
-    if (!config || !monitorId) return undefined;
+    if (!config || isSplitView || monitorIds.length !== 1) return undefined;
+    const monitorId = monitorIds[0];
     return config.monitors.find((item) => item.id === monitorId);
-  }, [config, monitorId]);
+  }, [config, monitorIds, isSplitView]);
 
+  // 分割表示用の左側monitor（最初のmonitorパラメータ）
   const leftMonitor: MonitorConfig | undefined = useMemo(() => {
-    if (!config || !isSplitView) return undefined;
-    const params = new URLSearchParams(window.location.search);
-    const leftId = params.get('left') ?? config?.monitors[0]?.id ?? null;
-    if (!leftId) return undefined;
+    if (!config || !isSplitView || monitorIds.length < 1) return undefined;
+    const leftId = monitorIds[0];
     return config.monitors.find((item) => item.id === leftId);
-  }, [config, isSplitView]);
+  }, [config, monitorIds, isSplitView]);
 
+  // 分割表示用の右側monitor（2番目のmonitorパラメータ）
   const rightMonitor: MonitorConfig | undefined = useMemo(() => {
-    if (!config || !isSplitView) return undefined;
-    const params = new URLSearchParams(window.location.search);
-    const rightId = params.get('right') ?? config?.monitors[1]?.id ?? null;
-    if (!rightId) return undefined;
+    if (!config || !isSplitView || monitorIds.length < 2) return undefined;
+    const rightId = monitorIds[1];
     return config.monitors.find((item) => item.id === rightId);
-  }, [config, isSplitView]);
+  }, [config, monitorIds, isSplitView]);
 
   if (loading) {
     return (

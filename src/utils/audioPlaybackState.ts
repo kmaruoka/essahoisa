@@ -30,6 +30,7 @@ interface GlobalAudioQueueItem {
   timing: number;
   speechText: string;
   speechLang: string;
+  isLeftSide?: boolean; // 分割表示時の左右の位置（true=左、false=右）
 }
 
 const globalAudioQueue: GlobalAudioQueueItem[] = [];
@@ -135,7 +136,10 @@ const getGlobalAudioPriority = (item: GlobalAudioQueueItem): number => {
   const segmentPriority = item.isMainEntry ? 0 : 1;
   
   // 第3優先順位：左・右の順（左=0, 右=1）
-  const sidePriority = item.monitorId === "1" ? 0 : 1;
+  // 分割表示の場合は実際の左右の位置を使用、そうでなければmonitorIdで判定
+  const sidePriority = item.isLeftSide !== undefined 
+    ? (item.isLeftSide ? 0 : 1)  // 分割表示時は実際の左右の位置
+    : (item.monitorId === "1" ? 0 : 1);  // 単一表示時はmonitorIdで判定
   
   // 優先順位を組み合わせ（入線時刻が最重要）
   return arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
@@ -243,7 +247,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   await playBroadcastingStart();
 
   // チャイムと音声合成の間に間隔を設ける
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   // 音声合成
   
@@ -365,7 +369,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   }
 
   // 音声合成と終了チャイムの間に間隔を設ける
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   // 放送終了音声
   await playBroadcastingEnd();

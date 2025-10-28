@@ -27,7 +27,12 @@ export const ScheduleScreen = ({
     mainEntries, 
     nextEntry, 
     SPEECH_SUPPORTED 
-  } = useScheduleScreen({ monitor, appConfig, isVisible: true });
+  } = useScheduleScreen({ 
+    monitor, 
+    appConfig, 
+    isVisible: true, 
+    isLeftSide: isSplitView ? isLeft : undefined 
+  });
 
   const containerClass = isSplitView 
     ? `screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`

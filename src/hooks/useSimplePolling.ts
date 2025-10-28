@@ -71,7 +71,8 @@ const unifiedPolling = async (
   setCurrentConfig: (config: AppConfig) => void,
   setCurrentMonitor: (monitor: MonitorConfig) => void,
   setDisplayEntries: (entries: ScheduleFile['entries']) => void,
-  isVisible: boolean = true
+  isVisible: boolean = true,
+  isLeftSide?: boolean // 分割表示時の左右の位置（true=左、false=右、undefined=単一表示）
 ) => {
   logger.debug(`統合ポーリング実行: monitor=${monitor.title}, hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}, isVisible=${isVisible}`);
   
@@ -127,14 +128,29 @@ const unifiedPolling = async (
   const displayEntries = sortedEntries.filter(entry => {
     if (!entry.arrivalTime) return false;
     const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-    const arrivalTime = hours * 60 + minutes;
+    let arrivalTime = hours * 60 + minutes;
+    
+    // 日をまたぐ場合の処理（現在時刻より小さい場合は翌日とみなす）
+    if (arrivalTime < currentTime) {
+      arrivalTime += 24 * 60; // 24時間（1440分）を追加
+    }
+    
     const isAfterCurrentTime = arrivalTime >= currentTime;
     const timeDiff = arrivalTime - currentTime;
     const shouldShow = isAfterCurrentTime && timeDiff <= beforeMinutes;
+    
+    // デバッグログ追加
+    logger.debug(`エントリフィルタリング: ${entry.supplierName} (${entry.arrivalTime}) - 到着時刻:${arrivalTime}分, 現在時刻:${currentTime}分, 時間差:${timeDiff}分, beforeMinutes:${beforeMinutes}, 表示対象:${shouldShow}`);
+    
     return shouldShow;
   });
-
   
+  // フィルタリング結果のサマリーログ
+  logger.info(`フィルタリング結果: 全エントリ数=${sortedEntries.length}, 表示対象エントリ数=${displayEntries.length}, beforeMinutes=${beforeMinutes}`);
+  if (displayEntries.length > 0) {
+    logger.info(`表示対象エントリ: ${displayEntries.map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
+  }
+
   // データを状態に保存
   setData(newData);
   setDisplayEntries(displayEntries);
@@ -205,7 +221,8 @@ const unifiedPolling = async (
           isMainEntry,
           timing: targetTiming,
           speechText,
-          speechLang: monitor.speechLang || 'ja-JP'
+          speechLang: monitor.speechLang || 'ja-JP',
+          isLeftSide // 分割表示時の左右の位置
         });
         
         // 非同期でグローバル音声キュー処理を実行
@@ -302,7 +319,7 @@ class PollingManager {
 const pollingManager = PollingManager.getInstance();
 
 // シンプルポーリングフック（setTimeoutの連鎖）
-export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true) => {
+export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true, isLeftSide?: boolean) => {
   const [data, setData] = useState<ScheduleFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -322,7 +339,7 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, i
       try {
         // メモリ使用量をログ出力
         logMemoryUsage();
-        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible);
+        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible, isLeftSide);
       } catch (error) {
         logger.error('ポーリングエラー:', error);
       }

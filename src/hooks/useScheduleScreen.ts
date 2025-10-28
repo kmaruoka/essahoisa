@@ -8,11 +8,12 @@ interface UseScheduleScreenProps {
   monitor: MonitorConfig;
   appConfig: AppConfig;
   isVisible?: boolean;
+  isLeftSide?: boolean; // 分割表示時の左右の位置（true=左、false=右、undefined=単一表示）
 }
 
-export const useScheduleScreen = ({ monitor, appConfig, isVisible = true }: UseScheduleScreenProps) => {
+export const useScheduleScreen = ({ monitor, appConfig, isVisible = true, isLeftSide }: UseScheduleScreenProps) => {
   // シンプルポーリングを使用（全てのロジックが統合されている）
-  const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = useSimplePolling(monitor, appConfig, isVisible);
+  const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = useSimplePolling(monitor, appConfig, isVisible, isLeftSide);
   
   // 最新の設定を使用（ポーリングで更新された設定を優先）
   const effectiveConfig = currentConfig || appConfig;
