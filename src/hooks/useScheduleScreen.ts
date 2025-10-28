@@ -1,0 +1,57 @@
+import { useEffect } from 'react';
+import { useSimplePolling } from './useSimplePolling';
+import type { AppConfig, MonitorConfig } from '../types';
+
+const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+interface UseScheduleScreenProps {
+  monitor: MonitorConfig;
+  appConfig: AppConfig;
+  isVisible?: boolean;
+}
+
+export const useScheduleScreen = ({ monitor, appConfig, isVisible = true }: UseScheduleScreenProps) => {
+  // シンプルポーリングを使用（全てのロジックが統合されている）
+  const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = useSimplePolling(monitor, appConfig, isVisible);
+  
+  // 最新の設定を使用（ポーリングで更新された設定を優先）
+  const effectiveConfig = currentConfig || appConfig;
+  const effectiveMonitor = currentMonitor || monitor;
+
+  // ポーリング開始
+  useEffect(() => {
+    const stopPolling = startPolling();
+    return stopPolling;
+  }, []); // 依存配列を空にして、初回のみ実行
+  
+  // 上段（メイン表示）
+  const mainEntries = displayEntries.slice(0, 1);
+  
+  // 下段（次の便）
+  const nextEntry = displayEntries[1];
+
+  // 音声API自動有効化（ユーザーインタラクション不要）
+  useEffect(() => {
+    if (effectiveMonitor.hasAudio && SPEECH_SUPPORTED) {
+      // 無音の音声を再生してAPIを有効化
+      const silentUtterance = new SpeechSynthesisUtterance('');
+      silentUtterance.volume = 0;
+      
+      try {
+        window.speechSynthesis.speak(silentUtterance);
+      } catch {
+        // 音声API自動有効化エラーは無視
+      }
+    }
+  }, [effectiveMonitor.hasAudio]);
+
+  return {
+    loading,
+    error,
+    effectiveConfig,
+    effectiveMonitor,
+    mainEntries,
+    nextEntry,
+    SPEECH_SUPPORTED
+  };
+};

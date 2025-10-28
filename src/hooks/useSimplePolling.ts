@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import type { ScheduleFile, MonitorConfig, AppConfig, ScheduleEntry } from '../types';
+import type { ScheduleFile, MonitorConfig, AppConfig } from '../types';
 import { 
-  savePlaybackRecord, 
   hasBeenPlayed, 
   cleanupOldRecords,
   clearPlaybackRecords
 } from '../utils/audioPlaybackManager';
 import { formatSpeech } from '../utils/formatSpeech';
-import { startPlayback, endPlayback, isEntryAlreadyPlayed, addToGlobalAudioQueue, processGlobalAudioQueue } from '../utils/audioPlaybackState';
+import { addToGlobalAudioQueue, processGlobalAudioQueue } from '../utils/audioPlaybackState';
+import { logger } from '../utils/logger';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -27,155 +27,8 @@ const buildConfigUrl = (): string => {
   return `${normalized}config/monitor-config.json`;
 };
 
-// MP3ファイル再生機能
-const playMp3File = (filePath: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(filePath);
-    audio.onended = () => resolve();
-    audio.onerror = (error) => reject(error);
-    audio.play().catch(reject);
-  });
-};
 
-// 音声再生前後のMP3ファイル再生（重複防止）
-let isBroadcastingStartPlaying = false;
-let isBroadcastingEndPlaying = false;
 
-const playBroadcastingStart = async (): Promise<void> => {
-  if (isBroadcastingStartPlaying) {
-    return;
-  }
-  
-  isBroadcastingStartPlaying = true;
-  try {
-    await playMp3File('/data/broadcasting-start1.mp3');
-  } catch (error) {
-    console.error('放送開始音声再生エラー:', error);
-  } finally {
-    isBroadcastingStartPlaying = false;
-  }
-};
-
-const playBroadcastingEnd = async (): Promise<void> => {
-  if (isBroadcastingEndPlaying) {
-    return;
-  }
-  
-  isBroadcastingEndPlaying = true;
-  try {
-    await playMp3File('/data/broadcasting-end1.mp3');
-  } catch (error) {
-    console.error('放送終了音声再生エラー:', error);
-  } finally {
-    isBroadcastingEndPlaying = false;
-  }
-};
-
-// グローバルな音声再生状態管理（重複防止）
-let globalAudioPlaying = false;
-let currentPlayingEntryId: string | null = null;
-let audioQueue: Array<{entry: ScheduleEntry, timing: number, config: AppConfig, monitor: MonitorConfig, isMainEntry: boolean}> = [];
-let isProcessingAudioQueue = false;
-
-// 音声再生の優先順位を決定する関数
-const getAudioPriority = (entry: ScheduleEntry, monitor: MonitorConfig, isMainEntry: boolean): number => {
-  // 第1優先順位：入線時刻の小さい順
-  const [hours, minutes] = entry.arrivalTime?.split(':').map(Number) || [0, 0];
-  const arrivalTimeMinutes = hours * 60 + minutes;
-  
-  // 第2優先順位：上段・下段の順（上段=0, 下段=1）
-  const segmentPriority = isMainEntry ? 0 : 1;
-  
-  // 第3優先順位：左・右の順（左=0, 右=1）
-  const sidePriority = monitor.id === "1" ? 0 : 1;
-  
-  // 優先順位を組み合わせ（入線時刻が最重要）
-  return arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
-};
-
-// 音声キュー処理関数
-const processAudioQueue = async () => {
-  if (isProcessingAudioQueue || audioQueue.length === 0) {
-    return;
-  }
-  
-  isProcessingAudioQueue = true;
-  
-  // 優先順位に基づいてキューをソート
-  audioQueue.sort((a, b) => {
-    const priorityA = getAudioPriority(a.entry, a.monitor, a.isMainEntry);
-    const priorityB = getAudioPriority(b.entry, b.monitor, b.isMainEntry);
-    return priorityA - priorityB;
-  });
-  
-  console.log('音声再生優先順位:', audioQueue.map(item => ({
-    entry: item.entry.supplierName,
-    arrivalTime: item.entry.arrivalTime,
-    monitor: item.monitor.title,
-    isMainEntry: item.isMainEntry,
-    priority: getAudioPriority(item.entry, item.monitor, item.isMainEntry)
-  })));
-  
-  while (audioQueue.length > 0) {
-    const { entry, timing, config, monitor } = audioQueue.shift()!;
-    await playAudioDirectly(entry, timing, config, monitor);
-  }
-  
-  isProcessingAudioQueue = false;
-};
-
-// 音声再生関数
-const playAudioDirectly = async (entry: ScheduleEntry, timing: number, currentConfig: AppConfig, monitor: MonitorConfig) => {
-  // 同じ便の重複再生を完全に防止
-  if (currentPlayingEntryId === entry.id || isEntryAlreadyPlayed(entry.id)) {
-    console.log(`音声再生スキップ: 同じ便が既に再生中または再生済み (entryId=${entry.id})`);
-    return;
-  }
-
-  console.log(`音声再生開始: ${entry.supplierName} (timing: ${timing})`);
-  globalAudioPlaying = true;
-  currentPlayingEntryId = entry.id;
-
-  // 音声再生状態を開始
-  startPlayback(entry.id, entry.arrivalTime || '');
-
-  try {
-    await playBroadcastingStart();
-    
-    const speechText = formatSpeech(currentConfig.speechFormat, entry);
-    const utterance = new SpeechSynthesisUtterance(speechText);
-    utterance.lang = monitor.speechLang || 'ja-JP';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    await new Promise<void>((resolve, reject) => {
-      utterance.onend = () => resolve();
-      utterance.onerror = (error) => reject(error);
-      window.speechSynthesis.speak(utterance);
-    });
-
-    await playBroadcastingEnd();
-    
-    // 再生記録を保存
-    const record = {
-      entryId: entry.id,
-      timingMinutes: timing,
-      playedAt: new Date().toISOString(),
-      arrivalTime: entry.arrivalTime
-    };
-    savePlaybackRecord(record);
-    console.log(`音声再生完了: ${entry.supplierName} (timing: ${timing})`);
-  } catch (error) {
-    console.error('音声再生エラー:', error);
-  } finally {
-    globalAudioPlaying = false;
-    currentPlayingEntryId = null;
-    
-    // 音声再生状態を終了
-    endPlayback();
-  }
-};
 
 // データ取得関数
 const fetchData = async (dataUrl: string): Promise<ScheduleFile | null> => {
@@ -212,24 +65,25 @@ const fetchConfig = async (): Promise<AppConfig | null> => {
 const unifiedPolling = async (
   monitor: MonitorConfig, 
   appConfig: AppConfig, 
-  setData: (data: any) => void, 
+  setData: (data: ScheduleFile | null) => void, 
   setError: (error: string | null) => void, 
   setLoading: (loading: boolean) => void,
   setCurrentConfig: (config: AppConfig) => void,
   setCurrentMonitor: (monitor: MonitorConfig) => void,
-  setDisplayEntries: (entries: any[]) => void
+  setDisplayEntries: (entries: ScheduleFile['entries']) => void,
+  isVisible: boolean = true
 ) => {
-  console.log(`統合ポーリング実行: hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}`);
+  logger.debug(`統合ポーリング実行: monitor=${monitor.title}, hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}, isVisible=${isVisible}`);
   
   // 1. 設定ファイル取得
   const latestConfig = await fetchConfig();
   if (!latestConfig) {
-    console.log('設定ファイル取得失敗、既存設定を使用');
+    logger.debug('設定ファイル取得失敗、既存設定を使用');
   } else {
-    console.log('設定ファイル取得成功');
+    logger.debug('設定ファイル取得成功');
     const monitorConfig = latestConfig.monitors.find(m => m.id === monitor.id);
     if (monitorConfig?.audioSettings?.timings) {
-      console.log(`現在のtimings設定: [${monitorConfig.audioSettings.timings.join(', ')}]`);
+      logger.debug(`現在のtimings設定: [${monitorConfig.audioSettings.timings.join(', ')}]`);
     }
     // 最新の設定を状態に反映
     setCurrentConfig(latestConfig);
@@ -242,19 +96,22 @@ const unifiedPolling = async (
   // 2. データ取得
   const newData = await fetchData(monitor.dataUrl);
   if (!newData?.entries) {
-    console.log('データ取得失敗');
+    logger.error('データ取得失敗');
     setError('データの取得に失敗しました');
     setLoading(false);
     return;
   }
-  console.log(`データ取得完了: エントリ数=${newData.entries.length}`);
-  console.log(`データURL: ${monitor.dataUrl}`);
-  console.log(`最新エントリ: ${newData.entries.slice(-3).map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
+  logger.debug(`データ取得完了: エントリ数=${newData.entries.length}`);
+  logger.debug(`データURL: ${monitor.dataUrl}`);
+  logger.debug(`最新エントリ: ${newData.entries.slice(-3).map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
   
   // 3. 表示用エントリの処理（全てのロジックを統合）
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
   const beforeMinutes = config.displaySettings?.beforeMinutes ?? 30;
+  
+  // 現在時刻の詳細ログ
+  logger.info(`現在時刻: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} (${currentTime}分)`);
   
   // エントリをソート
   const sortedEntries = [...newData.entries].sort((a, b) => {
@@ -276,6 +133,7 @@ const unifiedPolling = async (
     const shouldShow = isAfterCurrentTime && timeDiff <= beforeMinutes;
     return shouldShow;
   });
+
   
   // データを状態に保存
   setData(newData);
@@ -283,58 +141,49 @@ const unifiedPolling = async (
   setError(null);
   setLoading(false);
   
-  // 4. 音声チェック（音声が有効な場合のみ）
-  if (monitor.hasAudio && SPEECH_SUPPORTED) {
-    if (globalAudioPlaying) {
-      console.log(`音声再生中のためスキップ`);
-      return;
-    }
-
+  // 4. 音声チェック（音声が有効で表示されている場合のみ）
+  logger.debug(`音声チェック条件: hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}, isVisible=${isVisible}, displayEntries.length=${displayEntries.length}`);
+  if (monitor.hasAudio && SPEECH_SUPPORTED && isVisible) {
     // 最新の設定からtimingsを取得
     const monitorConfig = config.monitors.find(m => m.id === monitor.id);
     const audioSettings = monitorConfig?.audioSettings || monitor.audioSettings;
     const speechTimings = audioSettings?.timings ?? [0];
     
-    console.log(`音声チェック: 使用中のtimings=[${speechTimings.join(', ')}]`);
-    console.log(`音声チェック開始: 現在時刻=${currentTime}分, 表示エントリ数=${displayEntries.length}`);
-    console.log(`ソート済みエントリ: ${displayEntries.map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
+    logger.debug(`音声判定開始: speechTimings=[${speechTimings.join(', ')}], 対象エントリ数=${displayEntries.length}`);
     
     for (const entry of displayEntries) {
       if (!entry.id || !entry.arrivalTime) continue;
 
-      // 既に再生済みの便はスキップ
-      if (isEntryAlreadyPlayed(entry.id)) {
-        console.log(`エントリスキップ: 既に再生済み (entryId=${entry.id})`);
-        continue;
-      }
-
       const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
       const arrivalTime = hours * 60 + minutes;
-      
-      console.log(`エントリチェック: ${entry.supplierName} (到着時刻=${arrivalTime}分, ID=${entry.id})`);
+      const timeDiff = arrivalTime - currentTime;
+
+      logger.debug(`音声判定: ${entry.id} (${entry.arrivalTime}), 時間差: ${timeDiff}分`);
 
       const pastTimings = speechTimings.filter(timingMinutes => {
         const speechTime = arrivalTime - timingMinutes;
         const shouldPlay = currentTime >= speechTime;
-        console.log(`  timing=${timingMinutes}分, 音声時刻=${speechTime}分, 再生対象=${shouldPlay}`);
+        const speechTimeFormatted = `${Math.floor(speechTime / 60).toString().padStart(2, '0')}:${(speechTime % 60).toString().padStart(2, '0')}`;
+        const currentTimeFormatted = `${Math.floor(currentTime / 60).toString().padStart(2, '0')}:${(currentTime % 60).toString().padStart(2, '0')}`;
+        logger.debug(`  タイミング${timingMinutes}分: 再生時刻${speechTimeFormatted}(${speechTime}分), 現在時刻${currentTimeFormatted}(${currentTime}分), 判定=${shouldPlay}`);
         return shouldPlay;
       });
 
-      console.log(`  過ぎているタイミング: [${pastTimings.join(', ')}]`);
+      logger.debug(`  条件を満たすタイミング: [${pastTimings.join(', ')}]`);
 
       if (pastTimings.length === 0) {
-        console.log(`  音声再生対象なし`);
+        logger.debug(`  → 条件を満たすタイミングなし、スキップ`);
         continue;
       }
 
       // 複数のタイミングが条件を満たす場合、最小値（最も近いタイミング）を選択
       const sortedPastTimings = [...pastTimings].sort((a, b) => a - b);
-      console.log(`  ソート済みタイミング: [${sortedPastTimings.join(', ')}]`);
+      logger.debug(`  ソート後タイミング: [${sortedPastTimings.join(', ')}]`);
 
       let targetTiming = null;
       for (const timingMinutes of sortedPastTimings) {
         const hasPlayed = hasBeenPlayed(entry.id, timingMinutes);
-        console.log(`  timing=${timingMinutes}分, 再生済み=${hasPlayed}`);
+        logger.debug(`    タイミング${timingMinutes}分: 再生済み=${hasPlayed}`);
         if (!hasPlayed) {
           targetTiming = timingMinutes;
           break;
@@ -342,7 +191,9 @@ const unifiedPolling = async (
       }
 
       if (targetTiming !== null) {
-        console.log(`  選択されたタイミング: ${targetTiming}分（最小値）`);
+        const actualSpeechTime = arrivalTime - targetTiming;
+        const actualSpeechTimeFormatted = `${Math.floor(actualSpeechTime / 60).toString().padStart(2, '0')}:${(actualSpeechTime % 60).toString().padStart(2, '0')}`;
+        logger.info(`  → 音声再生対象: タイミング${targetTiming}分 (実際の再生時刻: ${actualSpeechTimeFormatted})`);
         // グローバル音声キューに追加
         const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
         const speechText = formatSpeech(config.speechFormat, entry);
@@ -362,24 +213,22 @@ const unifiedPolling = async (
         // 非同期でグローバル音声キュー処理を実行
         setTimeout(() => {
           processGlobalAudioQueue().catch(error => {
-            console.error(`グローバル音声キュー処理エラー:`, error);
+            logger.error(`グローバル音声キュー処理エラー:`, error);
           });
         }, 0);
         // 連続再生のためbreakを削除
       } else {
-        console.log(`  全てのタイミングが再生済み`);
+        logger.debug(`  → 音声再生対象なし（全て再生済み）`);
       }
     }
-  } else {
-    console.log(`音声チェック条件未満: hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}`);
   }
 };
 
 // メモリ使用量監視
 const logMemoryUsage = () => {
   if ('memory' in performance) {
-    const memory = (performance as any).memory;
-    console.log('メモリ使用量:', {
+    const memory = (performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+    logger.debug('メモリ使用量:', {
       used: Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB',
       total: Math.round(memory.totalJSHeapSize / 1024 / 1024) + 'MB',
       limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
@@ -388,19 +237,19 @@ const logMemoryUsage = () => {
 };
 
 // シンプルポーリングフック（setTimeoutの連鎖）
-export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig) => {
-  const [data, setData] = useState<any>(null);
+export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true) => {
+  const [data, setData] = useState<ScheduleFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<AppConfig>(appConfig);
   const [currentMonitor, setCurrentMonitor] = useState<MonitorConfig>(monitor);
-  const [displayEntries, setDisplayEntries] = useState<any[]>([]);
+  const [displayEntries, setDisplayEntries] = useState<ScheduleFile['entries']>([]);
   
   let timeoutId: number | null = null;
   let isRunning = false;
 
   const startPolling = () => {
-    console.log('シンプルポーリング開始');
+    logger.debug('シンプルポーリング開始');
     
     // 非同期でローカルストレージの初期化処理を実行（ポーリングをブロックしない）
     setTimeout(() => {
@@ -410,17 +259,17 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig) =
         
         // 壊れたデータを修復（ローカルストレージをクリア）
         const records = JSON.parse(localStorage.getItem('audioPlaybackRecords') || '[]');
-        const hasCorruptedData = records.some((record: any) => 
+        const hasCorruptedData = records.some((record: { entryId?: string; timingMinutes?: number }) => 
           !record.entryId || typeof record.entryId !== 'string' || 
           record.timingMinutes === null || typeof record.timingMinutes !== 'number'
         );
         
         if (hasCorruptedData) {
-          console.log('壊れたデータを検出、ローカルストレージをクリア');
+          logger.warn('壊れたデータを検出、ローカルストレージをクリア');
           clearPlaybackRecords();
         }
-      } catch (error) {
-        console.log('ローカルストレージデータが壊れています、クリアします');
+      } catch {
+        logger.warn('ローカルストレージデータが壊れています、クリアします');
         clearPlaybackRecords();
       }
     }, 0);
@@ -430,16 +279,19 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig) =
     const scheduleNext = async () => {
       if (!isRunning) return;
       
+      const pollStartTime = new Date();
+      logger.debug(`ポーリング実行開始: ${pollStartTime.getHours().toString().padStart(2, '0')}:${pollStartTime.getMinutes().toString().padStart(2, '0')}:${pollStartTime.getSeconds().toString().padStart(2, '0')}`);
+      
       try {
         // メモリ使用量をログ出力
         logMemoryUsage();
-        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries);
+        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible);
       } catch (error) {
-        console.error('ポーリングエラー:', error);
+        logger.error('ポーリングエラー:', error);
       }
       
       if (isRunning) {
-        timeoutId = window.setTimeout(scheduleNext, 30000);
+        timeoutId = window.setTimeout(scheduleNext, 10000); // 30秒から10秒に短縮
       }
     };
     
@@ -447,7 +299,7 @@ export const useSimplePolling = (monitor: MonitorConfig, appConfig: AppConfig) =
     scheduleNext();
     
     return () => {
-      console.log('シンプルポーリング停止');
+      logger.debug('シンプルポーリング停止');
       isRunning = false;
       if (timeoutId) {
         clearTimeout(timeoutId);

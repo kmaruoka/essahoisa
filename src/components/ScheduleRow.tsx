@@ -16,19 +16,13 @@ export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView 
 
   // 音声再生状態を監視
   useEffect(() => {
-    const cleanup = addPlaybackStateListener((state) => {
+    const cleanup = addPlaybackStateListener((_state) => {
       const entryPlaying = isEntryPlaying(entry.id);
-      console.log(`エントリ ${entry.id} の音声再生状態:`, {
-        entryPlaying,
-        currentEntryId: state.currentEntryId,
-        isPlaying: state.isPlaying
-      });
       setIsAudioPlaying(entryPlaying);
     });
 
     // 初回状態をチェック
     const initialEntryPlaying = isEntryPlaying(entry.id);
-    console.log(`エントリ ${entry.id} の初期状態:`, { entryPlaying: initialEntryPlaying });
     setIsAudioPlaying(initialEntryPlaying);
 
     return cleanup;

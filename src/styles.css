@@ -246,22 +246,22 @@ html, body {
 }
 
 .next-indicator {
-  width: 8rem;
-  height: 8rem;
-  border: 4px solid var(--color-orange);
+  width: 1.5em;
+  height: 1.5em;
+  border: 0.08em solid var(--color-orange);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-orange);
-  font-size: var(--font-size-medium);
+  font-size: var(--font-size-responsive-medium);
   font-weight: 700;
   letter-spacing: 0.1em;
 }
 
 .placeholder {
   color: var(--color-note);
-  font-size: var(--font-size-responsive-medium);
+  font-size: var(--font-size-responsive-small);
   text-align: center;
   padding: 1rem;
   background: transparent;
@@ -287,8 +287,9 @@ html, body {
 
 /* スプリット表示時の「次」の丸のサイズ調整 */
 .split-screen .next-indicator {
-  width: 5rem;
-  height: 5rem;
+  width: 1.2em;
+  height: 1.2em;
+  border: 0.15em solid var(--color-orange);
   font-size: clamp(1.5rem, 2.5vw, 3rem);
 }
 

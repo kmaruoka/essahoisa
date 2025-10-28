@@ -1,4 +1,5 @@
 // 音声再生完了状態をローカルストレージで管理するユーティリティ
+import { logger } from './logger';
 
 export interface PlaybackRecord {
   entryId: string;
@@ -15,7 +16,7 @@ export const getPlaybackRecords = (): PlaybackRecord[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error('ローカルストレージからの再生記録取得エラー:', error);
+    logger.error('ローカルストレージからの再生記録取得エラー:', error);
     return [];
   }
 };
@@ -41,7 +42,7 @@ export const savePlaybackRecord = (record: PlaybackRecord): void => {
       // ストレージ容量チェック
       const dataToStore = JSON.stringify(newRecords);
       if (dataToStore.length > 4 * 1024 * 1024) { // 4MB制限
-        console.warn('ローカルストレージの容量が大きすぎます。古いデータをクリアしてから保存します。');
+        logger.warn('ローカルストレージの容量が大きすぎます。古いデータをクリアしてから保存します。');
         localStorage.setItem(STORAGE_KEY, JSON.stringify([newRecord]));
         return;
       }
@@ -54,7 +55,7 @@ export const savePlaybackRecord = (record: PlaybackRecord): void => {
       // ストレージ容量チェック
       const dataToStore = JSON.stringify(newRecords);
       if (dataToStore.length > 4 * 1024 * 1024) { // 4MB制限
-        console.warn('ローカルストレージの容量が大きすぎます。古いデータをクリアしてから保存します。');
+        logger.warn('ローカルストレージの容量が大きすぎます。古いデータをクリアしてから保存します。');
         localStorage.setItem(STORAGE_KEY, JSON.stringify([record]));
         return;
       }
@@ -62,13 +63,13 @@ export const savePlaybackRecord = (record: PlaybackRecord): void => {
       localStorage.setItem(STORAGE_KEY, dataToStore);
     }
   } catch (error) {
-    console.error('ローカルストレージへの再生記録保存エラー:', error);
+    logger.error('ローカルストレージへの再生記録保存エラー:', error);
     // エラーが発生した場合は強制クリアしてから再試行
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([record]));
-      console.log('エラー発生により強制的に記録を保存しました');
+      logger.warn('エラー発生により強制的に記録を保存しました');
     } catch (fallbackError) {
-      console.error('強制保存も失敗:', fallbackError);
+      logger.error('強制保存も失敗:', fallbackError);
     }
   }
 };
@@ -125,20 +126,20 @@ export const cleanupOldRecords = (): void => {
     // ストレージ容量チェック
     const dataToStore = JSON.stringify(recentRecords);
     if (dataToStore.length > 4 * 1024 * 1024) { // 4MB制限
-      console.warn('ローカルストレージの容量が大きすぎます。データを強制クリアします。');
+      logger.warn('ローカルストレージの容量が大きすぎます。データを強制クリアします。');
       localStorage.setItem(STORAGE_KEY, '[]');
       return;
     }
     
     localStorage.setItem(STORAGE_KEY, dataToStore);
   } catch (error) {
-    console.error('古い再生記録のクリーンアップエラー:', error);
+    logger.error('古い再生記録のクリーンアップエラー:', error);
     // エラーが発生した場合は強制クリア
     try {
       localStorage.setItem(STORAGE_KEY, '[]');
-      console.log('エラー発生によりローカルストレージを強制クリアしました');
+      logger.warn('エラー発生によりローカルストレージを強制クリアしました');
     } catch (fallbackError) {
-      console.error('強制クリアも失敗:', fallbackError);
+      logger.error('強制クリアも失敗:', fallbackError);
     }
   }
 };
@@ -150,18 +151,18 @@ export const clearPlaybackRecords = (): void => {
     // 削除が成功したか確認
     const remaining = localStorage.getItem(STORAGE_KEY);
     if (remaining !== null) {
-      console.warn('ローカルストレージの削除が不完全です。強制クリアを試行します。');
+      logger.warn('ローカルストレージの削除が不完全です。強制クリアを試行します。');
       // 強制クリア: 空の配列を設定
       localStorage.setItem(STORAGE_KEY, '[]');
     }
   } catch (error) {
-    console.error('再生記録のクリアエラー:', error);
+    logger.error('再生記録のクリアエラー:', error);
     // エラーが発生した場合の代替手段
     try {
       localStorage.setItem(STORAGE_KEY, '[]');
-      console.log('代替手段でローカルストレージをクリアしました');
+      logger.warn('代替手段でローカルストレージをクリアしました');
     } catch (fallbackError) {
-      console.error('代替手段でもクリアに失敗:', fallbackError);
+      logger.error('代替手段でもクリアに失敗:', fallbackError);
     }
   }
 };
@@ -173,7 +174,7 @@ export const clearPlaybackRecordsForEntry = (entryId: string): void => {
     const filteredRecords = records.filter(record => record.entryId !== entryId);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredRecords));
   } catch (error) {
-    console.error('特定便の再生記録クリアエラー:', error);
+    logger.error('特定便の再生記録クリアエラー:', error);
   }
 };
 
@@ -184,17 +185,17 @@ export const getStorageDebugInfo = (): void => {
     const rawData = localStorage.getItem(STORAGE_KEY);
     const dataSize = rawData ? rawData.length : 0;
     
-    console.log('=== ローカルストレージ詳細情報 ===');
-    console.log('キー:', STORAGE_KEY);
-    console.log('レコード数:', records.length);
-    console.log('データサイズ:', dataSize, 'bytes');
-    console.log('データサイズ:', (dataSize / 1024).toFixed(2), 'KB');
-    console.log('生データ:', rawData);
-    console.log('パース後データ:', records);
+    logger.debug('=== ローカルストレージ詳細情報 ===');
+    logger.debug('キー:', STORAGE_KEY);
+    logger.debug('レコード数:', records.length);
+    logger.debug('データサイズ:', dataSize, 'bytes');
+    logger.debug('データサイズ:', (dataSize / 1024).toFixed(2), 'KB');
+    logger.debug('生データ:', rawData);
+    logger.debug('パース後データ:', records);
     
     // 各レコードの詳細
     records.forEach((record, index) => {
-      console.log(`レコード${index + 1}:`, {
+      logger.debug(`レコード${index + 1}:`, {
         entryId: record.entryId,
         timingMinutes: record.timingMinutes,
         playedAt: record.playedAt,
@@ -206,35 +207,35 @@ export const getStorageDebugInfo = (): void => {
     // ブラウザのストレージ制限情報
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       navigator.storage.estimate().then(estimate => {
-        console.log('ストレージ使用量:', estimate.usage, 'bytes');
-        console.log('ストレージ制限:', estimate.quota, 'bytes');
-        console.log('使用率:', ((estimate.usage || 0) / (estimate.quota || 1) * 100).toFixed(2), '%');
+        logger.debug('ストレージ使用量:', estimate.usage, 'bytes');
+        logger.debug('ストレージ制限:', estimate.quota, 'bytes');
+        logger.debug('使用率:', ((estimate.usage || 0) / (estimate.quota || 1) * 100).toFixed(2), '%');
       });
     }
     
     // ローカルストレージの削除テスト
-    console.log('=== ローカルストレージ削除テスト ===');
+    logger.debug('=== ローカルストレージ削除テスト ===');
     try {
       const testKey = 'test-delete-key';
       localStorage.setItem(testKey, 'test-value');
-      console.log('テストキー設定完了');
+      logger.debug('テストキー設定完了');
       
       const beforeDelete = localStorage.getItem(testKey);
-      console.log('削除前の値:', beforeDelete);
+      logger.debug('削除前の値:', beforeDelete);
       
       localStorage.removeItem(testKey);
       const afterDelete = localStorage.getItem(testKey);
-      console.log('削除後の値:', afterDelete);
+      logger.debug('削除後の値:', afterDelete);
       
       if (afterDelete === null) {
-        console.log('✅ ローカルストレージ削除は正常に動作しています');
+        logger.debug('✅ ローカルストレージ削除は正常に動作しています');
       } else {
-        console.log('❌ ローカルストレージ削除が失敗しています');
+        logger.debug('❌ ローカルストレージ削除が失敗しています');
       }
     } catch (error) {
-      console.error('削除テストエラー:', error);
+      logger.error('削除テストエラー:', error);
     }
   } catch (error) {
-    console.error('デバッグ情報取得エラー:', error);
+    logger.error('デバッグ情報取得エラー:', error);
   }
 };

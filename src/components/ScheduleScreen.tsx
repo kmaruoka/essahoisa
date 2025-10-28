@@ -1,76 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useSimplePolling } from '../hooks/useSimplePolling';
-import type { AppConfig, MonitorConfig } from '../types';
-import { ScheduleRow } from './ScheduleRow';
-import { formatSpeech } from '../utils/formatSpeech';
-import { formatDisplayMessage } from '../utils/formatDisplayMessage';
 import { Container, Row, Col } from 'react-bootstrap';
+import { ScheduleRow } from './ScheduleRow';
+import { formatDisplayMessage } from '../utils/formatDisplayMessage';
+import { useScheduleScreen } from '../hooks/useScheduleScreen';
+import type { AppConfig, MonitorConfig } from '../types';
 
 interface ScheduleScreenProps {
   monitor: MonitorConfig;
   appConfig: AppConfig;
   isSplitView?: boolean;
-  leftMonitor?: MonitorConfig;
-  rightMonitor?: MonitorConfig;
+  isLeft?: boolean;
+  showNextIndicator?: boolean;
 }
 
-const toDisplayTime = (isoString?: string): string | undefined => {
-  if (!isoString) return undefined;
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return isoString;
-  const datePart = `${date.getFullYear()}/${`${date.getMonth() + 1}`.padStart(2, '0')}/${`${date.getDate()}`.padStart(2, '0')}`;
-  const timePart = date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  return `${datePart} ${timePart}`;
-};
+export const ScheduleScreen = ({ 
+  monitor, 
+  appConfig, 
+  isSplitView = false,
+  isLeft = true,
+  showNextIndicator = true
+}: ScheduleScreenProps) => {
+  const { 
+    loading, 
+    error, 
+    effectiveConfig, 
+    effectiveMonitor, 
+    mainEntries, 
+    nextEntry, 
+    SPEECH_SUPPORTED 
+  } = useScheduleScreen({ monitor, appConfig, isVisible: true });
 
-const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
-  // シンプルポーリングを使用（全てのロジックが統合されている）
-  const { startPolling, data, loading, error, currentConfig, currentMonitor, displayEntries } = useSimplePolling(monitor, appConfig);
-  
-  // 最新の設定を使用（ポーリングで更新された設定を優先）
-  const effectiveConfig = currentConfig || appConfig;
-  const effectiveMonitor = currentMonitor || monitor;
-
-  // ポーリング開始
-  useEffect(() => {
-    const stopPolling = startPolling();
-    return stopPolling;
-  }, []); // 依存配列を空にして、初回のみ実行
-  
-  // 上段（メイン表示）
-  const mainEntries = displayEntries.slice(0, 1);
-  
-  // 下段（次の便）
-  const nextEntry = displayEntries[1];
-
-  // 音声API自動有効化（ユーザーインタラクション不要）
-  useEffect(() => {
-    if (effectiveMonitor.hasAudio && SPEECH_SUPPORTED) {
-      console.log('音声API自動有効化開始');
-      // 無音の音声を再生してAPIを有効化
-      const silentUtterance = new SpeechSynthesisUtterance('');
-      silentUtterance.volume = 0;
-      silentUtterance.onstart = () => {
-        console.log('音声API自動有効化成功');
-      };
-      silentUtterance.onerror = () => {
-        console.log('音声API自動有効化失敗');
-      };
-      
-      try {
-        window.speechSynthesis.speak(silentUtterance);
-      } catch (e) {
-        console.log('音声API自動有効化エラー:', e);
-      }
-    }
-  }, [effectiveMonitor.hasAudio]);
-
-
+  const containerClass = isSplitView 
+    ? `screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`
+    : 'screen';
 
   return (
-    <Container fluid className="screen">
+    <Container fluid className={containerClass}>
       <Row className="header">
         <Col className="header-title">{effectiveMonitor.title}</Col>
         {!SPEECH_SUPPORTED && effectiveMonitor.hasAudio && (
@@ -86,14 +50,23 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
               {formatDisplayMessage(effectiveConfig)}
             </div>
           )}
-          {!loading && !error && mainEntries.map((entry) => <ScheduleRow key={entry.id} entry={entry} variant="primary" />)}
+          {!loading && !error && mainEntries.map((entry) => (
+            <ScheduleRow 
+              key={entry.id} 
+              entry={entry} 
+              variant="primary" 
+              isSplitView={isSplitView} 
+            />
+          ))}
         </Col>
       </Row>
       <Row className="divider" style={{ flexShrink: 0 }} />
       <Row className="footer align-items-center" style={{ minHeight: '30vh' }}>
         <Col>
           <Row className="footer-inner">
-            <Col xs="auto" className="next-indicator">次</Col>
+            {!isSplitView && showNextIndicator && (
+              <Col xs="auto" className="next-indicator">次</Col>
+            )}
             <Col>
               {loading && <div className="placeholder">データを読み込み中...</div>}
               {!loading && error && <div className="placeholder">{error}</div>}
@@ -102,7 +75,14 @@ export const ScheduleScreen = ({ monitor, appConfig }: ScheduleScreenProps) => {
                   {formatDisplayMessage(effectiveConfig)}
                 </div>
               )}
-              {!loading && !error && nextEntry && <ScheduleRow entry={nextEntry} variant="secondary" />}
+              {!loading && !error && nextEntry && (
+                <ScheduleRow 
+                  entry={nextEntry} 
+                  variant="secondary" 
+                  isSplitView={isSplitView}
+                  showNextIndicator={isSplitView}
+                />
+              )}
             </Col>
           </Row>
         </Col>

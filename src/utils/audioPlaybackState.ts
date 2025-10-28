@@ -1,10 +1,13 @@
 // 音声再生状態を管理するユーティリティ
+import { logger } from './logger';
 
 export interface AudioPlaybackState {
   isPlaying: boolean;
   currentEntryId: string | null;
   currentEntryArrivalTime: string | null;
 }
+
+// 音声合成の動作テスト結果（削除）
 
 // グローバル状態
 let globalPlaybackState: AudioPlaybackState = {
@@ -14,7 +17,7 @@ let globalPlaybackState: AudioPlaybackState = {
 };
 
 // 再生済み便の記録（重複防止用）
-let playedEntries: Set<string> = new Set();
+const playedEntries: Set<string> = new Set();
 
 // グローバル音声キュー（全体の優先順位で管理）
 interface GlobalAudioQueueItem {
@@ -29,7 +32,7 @@ interface GlobalAudioQueueItem {
   speechLang: string;
 }
 
-let globalAudioQueue: GlobalAudioQueueItem[] = [];
+const globalAudioQueue: GlobalAudioQueueItem[] = [];
 let isProcessingGlobalQueue = false;
 
 // 状態変更のリスナー
@@ -38,16 +41,14 @@ const listeners: Set<StateChangeListener> = new Set();
 
 // 状態を更新
 export const updatePlaybackState = (state: Partial<AudioPlaybackState>) => {
-  console.log('音声再生状態更新:', state);
   globalPlaybackState = { ...globalPlaybackState, ...state };
-  console.log('更新後の状態:', globalPlaybackState);
   
   // 全てのリスナーに通知
   listeners.forEach(listener => {
     try {
       listener(globalPlaybackState);
     } catch (error) {
-      console.error('状態変更リスナーエラー:', error);
+      logger.error('状態変更リスナーエラー:', error);
     }
   });
 };
@@ -105,8 +106,13 @@ export const clearPlayedEntries = () => {
 
 // グローバル音声キューに追加
 export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
+  // 既に同じentryIdの音声がキューに存在する場合はスキップ
+  const existingItem = globalAudioQueue.find(queueItem => queueItem.entryId === item.entryId);
+  if (existingItem) {
+    return;
+  }
+  
   globalAudioQueue.push(item);
-  console.log('グローバル音声キューに追加:', item);
 };
 
 // グローバル音声キューの優先順位を計算
@@ -127,7 +133,11 @@ const getGlobalAudioPriority = (item: GlobalAudioQueueItem): number => {
 
 // グローバル音声キューを処理
 export const processGlobalAudioQueue = async () => {
-  if (isProcessingGlobalQueue || globalAudioQueue.length === 0) {
+  if (isProcessingGlobalQueue) {
+    return;
+  }
+  
+  if (globalAudioQueue.length === 0) {
     return;
   }
   
@@ -140,60 +150,231 @@ export const processGlobalAudioQueue = async () => {
     return priorityA - priorityB;
   });
   
-  console.log('グローバル音声再生優先順位:', globalAudioQueue.map(item => ({
-    entry: item.supplierName,
-    arrivalTime: item.arrivalTime,
-    monitor: item.monitorTitle,
-    isMainEntry: item.isMainEntry,
-    priority: getGlobalAudioPriority(item)
-  })));
-  
-  // キューを順次処理
+  // キューを順次処理（直列実行）
   while (globalAudioQueue.length > 0) {
     const item = globalAudioQueue.shift()!;
     
     // 既に再生済みの便はスキップ
     if (isEntryAlreadyPlayed(item.entryId)) {
-      console.log(`音声再生スキップ: 既に再生済み (entryId=${item.entryId})`);
       continue;
     }
     
-    await playGlobalAudio(item);
+    // 音声再生を実行（直列処理）
+    try {
+      await playGlobalAudio(item);
+    } catch (error) {
+      logger.error(`音声再生エラー: ${item.supplierName} (${item.arrivalTime})`, error);
+      // エラーが発生しても次の音声再生を継続
+    }
   }
   
   isProcessingGlobalQueue = false;
 };
 
+
+
 // グローバル音声再生
 const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
-  console.log(`グローバル音声再生開始: ${item.supplierName} (${item.arrivalTime})`);
+  // 音声再生開始のINFOログ
+  logger.info(`音声再生開始: ${item.supplierName} (${item.arrivalTime}) - ${item.monitorTitle}`);
   
   // 音声再生状態を開始
   startPlayback(item.entryId, item.arrivalTime);
   
+  // 実際に再生されたタイミングを計算
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  const arrivalTimeMinutes = parseInt(item.arrivalTime.split(':')[0]) * 60 + parseInt(item.arrivalTime.split(':')[1]);
+  const timeDifference = arrivalTimeMinutes - currentTime;
+  
+  // 設定されているタイミングの中から最も近い値を選択
+  // 設定から動的に取得
+  let availableTimings: number[] = []; // デフォルト値（空配列）
+  
   try {
-    // 放送開始音声
-    await playBroadcastingStart();
+    // 設定ファイルから動的に取得（キャッシュなし、毎回取得）
+    const response = await fetch('/config/monitor-config.json', { 
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    if (response.ok) {
+      const config = await response.json();
+      const monitor = config.monitors.find((m: { id: string; audioSettings?: { timings?: number[] } }) => m.id === item.monitorId);
+      if (monitor && monitor.audioSettings && monitor.audioSettings.timings) {
+        availableTimings = monitor.audioSettings.timings.map((t: number) => Number(t));
+      }
+    }
+  } catch (error) {
+    logger.error('設定ファイルの取得に失敗:', error);
+    throw new Error('設定ファイルの取得に失敗しました');
+  }
+  
+  if (availableTimings.length === 0) {
+    logger.error('タイミング設定が空です');
+    throw new Error('タイミング設定が取得できませんでした');
+  }
+  
+  const sortedTimings = availableTimings.sort((a, b) => b - a);
+  
+  // 時間差以上のタイミングを選択（時間差が大きいほど、より大きなタイミングを選択）
+  const validTimings = sortedTimings.filter(timing => timing >= timeDifference);
+  const playedTiming = validTimings.length > 0 ? Math.min(...validTimings) : undefined;
+  
+  if (playedTiming === undefined) {
+    logger.error(`時間差${timeDifference}分に対して適切なタイミングが見つかりません。利用可能なタイミング: ${sortedTimings}`);
+    throw new Error(`時間差${timeDifference}分に対して適切なタイミングが見つかりません`);
+  }
+  
+  try {
+  // 放送開始音声
+  await playBroadcastingStart();
+
+  // チャイムと音声合成の間に間隔を設ける
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // 音声合成
+  
+  try {
+    // 音声合成が利用可能かチェック
+    if (!('speechSynthesis' in window)) {
+      throw new Error('音声合成がサポートされていません');
+    }
     
-    // 音声合成
+    // AudioContext の状態を確認・復旧
+    try {
+      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+    } catch {
+      // AudioContext確認エラーは無視
+    }
+    
+    // 既存の音声合成を停止
+    window.speechSynthesis.cancel();
+
+    // 音声が読み込まれるまで少し待機
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const utterance = new SpeechSynthesisUtterance(item.speechText);
     utterance.lang = item.speechLang;
-    utterance.rate = 0.9;
+    utterance.rate = 1.0; // デフォルト速度に変更
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
+    
+    // 日本語音声を明示的に設定
+    const voices = window.speechSynthesis.getVoices();
+    
+    const japaneseVoice = voices.find(voice => 
+      voice.lang.startsWith('ja') && voice.name.includes('Japanese')
+    );
+    if (japaneseVoice) {
+      utterance.voice = japaneseVoice;
+    } else {
+      // 日本語音声が見つからない場合は、ja-JPの音声を探す
+      const jaVoice = voices.find(voice => voice.lang === 'ja-JP');
+      if (jaVoice) {
+        utterance.voice = jaVoice;
+      }
+    }
 
     await new Promise<void>((resolve, reject) => {
-      utterance.onend = () => resolve();
-      utterance.onerror = (error) => reject(error);
-      window.speechSynthesis.speak(utterance);
+      let isResolved = false;
+      let hasStarted = false;
+      
+      utterance.onstart = () => {
+        hasStarted = true;
+      };
+      
+      utterance.onend = () => {
+        if (!isResolved) {
+          // onstartが発生していない場合でも、ブラウザの制限の可能性があるため
+          // 音声合成の状態を直接確認する
+          setTimeout(() => {
+            const isActuallySpeaking = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+            
+            if (!hasStarted && !isActuallySpeaking) {
+              isResolved = true;
+              reject(new Error('音声合成が実際には開始されていません'));
+              return;
+            }
+            
+            isResolved = true;
+            resolve();
+          }, 100);
+        }
+      };
+      
+      utterance.onerror = (error) => {
+        if (!isResolved) {
+          logger.error('音声合成エラー:', error);
+          isResolved = true;
+          reject(new Error('音声合成エラー: ' + error.error));
+        }
+      };
+      
+      // 音声合成を開始
+      try {
+        // SpeechSynthesis のキューを完全にクリアしてから開始
+        window.speechSynthesis.cancel();
+        setTimeout(() => {
+          window.speechSynthesis.speak(utterance);
+        }, 50);
+        
+      } catch (error) {
+        logger.error('音声合成開始エラー:', error);
+        if (!isResolved) {
+          isResolved = true;
+          reject(new Error('音声合成開始エラー: ' + error));
+        }
+        return;
+      }
+      
+      // 音声合成が開始されたかチェック（3秒後）
+      setTimeout(() => {
+        if (!hasStarted && !isResolved) {
+          // onstartが発生しなくても、onendイベントを待機する
+        }
+      }, 3000);
+      
+      // タイムアウト設定（10秒）
+      setTimeout(() => {
+        if (!isResolved) {
+          window.speechSynthesis.cancel();
+          isResolved = true;
+          reject(new Error('音声合成タイムアウト'));
+        }
+      }, 10000);
     });
-
-    // 放送終了音声
-    await playBroadcastingEnd();
-    
-    console.log(`グローバル音声再生完了: ${item.supplierName}`);
   } catch (error) {
-    console.error('グローバル音声再生エラー:', error);
+    logger.error('音声合成エラー:', error);
+    throw error; // エラーを再スローして、音声再生全体をスキップ
+  }
+
+  // 音声合成と終了チャイムの間に間隔を設ける
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // 放送終了音声
+  await playBroadcastingEnd();
+    
+    // ローカルストレージに再生記録を保存
+    try {
+      const { savePlaybackRecord } = await import('./audioPlaybackManager');
+      const record = {
+        entryId: item.entryId,
+        timingMinutes: playedTiming, // 実際に再生されたタイミング
+        playedAt: new Date().toISOString(),
+        arrivalTime: item.arrivalTime
+      };
+      savePlaybackRecord(record);
+    } catch (error) {
+      logger.error('再生記録の保存に失敗:', error);
+    }
+  } catch (error) {
+    logger.error('グローバル音声再生エラー:', error);
   } finally {
     // 音声再生状態を終了
     endPlayback();
@@ -201,20 +382,42 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
 };
 
 // MP3ファイル再生機能（グローバル用）
-const playBroadcastingStart = async (): Promise<void> => {
+export const playBroadcastingStart = async (): Promise<void> => {
   return new Promise((resolve, reject) => {
     const audio = new Audio('/data/broadcasting-start1.mp3');
-    audio.onended = () => resolve();
-    audio.onerror = (error) => reject(error);
-    audio.play().catch(reject);
+    
+    audio.onended = () => {
+      resolve();
+    };
+    
+    audio.onerror = (error) => {
+      logger.error('放送開始チャイム再生エラー:', error);
+      reject(error);
+    };
+    
+    audio.play().catch((playError) => {
+      logger.error('放送開始チャイム再生開始エラー:', playError);
+      reject(playError);
+    });
   });
 };
 
-const playBroadcastingEnd = async (): Promise<void> => {
+export const playBroadcastingEnd = async (): Promise<void> => {
   return new Promise((resolve, reject) => {
     const audio = new Audio('/data/broadcasting-end1.mp3');
-    audio.onended = () => resolve();
-    audio.onerror = (error) => reject(error);
-    audio.play().catch(reject);
+    
+    audio.onended = () => {
+      resolve();
+    };
+    
+    audio.onerror = (error) => {
+      logger.error('放送終了チャイム再生エラー:', error);
+      reject(error);
+    };
+    
+    audio.play().catch((playError) => {
+      logger.error('放送終了チャイム再生開始エラー:', playError);
+      reject(playError);
+    });
   });
 };
