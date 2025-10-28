@@ -24,6 +24,7 @@ interface GlobalAudioQueueItem {
   entryId: string;
   supplierName: string;
   arrivalTime: string;
+  arrivalDatetime?: number; // 正規化された到着時刻（分）
   monitorId: string;
   monitorTitle: string;
   isMainEntry: boolean;
@@ -128,9 +129,8 @@ export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
 
 // グローバル音声キューの優先順位を計算
 const getGlobalAudioPriority = (item: GlobalAudioQueueItem): number => {
-  // 第1優先順位：入線時刻の小さい順
-  const [hours, minutes] = item.arrivalTime.split(':').map(Number);
-  const arrivalTimeMinutes = hours * 60 + minutes;
+  // 第1優先順位：arrivalDatetime（正規化済み）の小さい順
+  const arrivalTimeMinutes = item.arrivalDatetime || 0;
   
   // 第2優先順位：上段・下段の順（上段=0, 下段=1）
   const segmentPriority = item.isMainEntry ? 0 : 1;
@@ -141,8 +141,10 @@ const getGlobalAudioPriority = (item: GlobalAudioQueueItem): number => {
     ? (item.isLeftSide ? 0 : 1)  // 分割表示時は実際の左右の位置
     : (item.monitorId === "1" ? 0 : 1);  // 単一表示時はmonitorIdで判定
   
-  // 優先順位を組み合わせ（入線時刻が最重要）
-  return arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
+  const priority = arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
+  
+  
+  return priority;
 };
 
 // グローバル音声キューを処理
@@ -295,30 +297,25 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
       }
     }
 
+    // 前の音声が再生中の場合は待機（より確実な方法）
+    while (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          resolve();
+        }, 100);
+      });
+    }
+
     await new Promise<void>((resolve, reject) => {
       let isResolved = false;
-      let hasStarted = false;
       
       utterance.onstart = () => {
-        hasStarted = true;
       };
       
       utterance.onend = () => {
         if (!isResolved) {
-          // onstartが発生していない場合でも、ブラウザの制限の可能性があるため
-          // 音声合成の状態を直接確認する
-          setTimeout(() => {
-            const isActuallySpeaking = window.speechSynthesis.speaking || window.speechSynthesis.pending;
-            
-            if (!hasStarted && !isActuallySpeaking) {
-              isResolved = true;
-              reject(new Error('音声合成が実際には開始されていません'));
-              return;
-            }
-            
-            isResolved = true;
-            resolve();
-          }, 100);
+          isResolved = true;
+          resolve();
         }
       };
       
@@ -332,11 +329,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
       
       // 音声合成を開始
       try {
-        // SpeechSynthesis のキューを完全にクリアしてから開始
-        window.speechSynthesis.cancel();
-        setTimeout(() => {
-          window.speechSynthesis.speak(utterance);
-        }, 50);
+        window.speechSynthesis.speak(utterance);
         
       } catch (error) {
         logger.error('音声合成開始エラー:', error);
@@ -347,21 +340,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
         return;
       }
       
-      // 音声合成が開始されたかチェック（3秒後）
-      setTimeout(() => {
-        if (!hasStarted && !isResolved) {
-          // onstartが発生しなくても、onendイベントを待機する
-        }
-      }, 3000);
-      
-      // タイムアウト設定（10秒）
-      setTimeout(() => {
-        if (!isResolved) {
-          window.speechSynthesis.cancel();
-          isResolved = true;
-          reject(new Error('音声合成タイムアウト'));
-        }
-      }, 10000);
+      // onendでのみ解決し、タイムアウトキャンセルは行わない（長尺音声対応）
     });
   } catch (error) {
     logger.error('音声合成エラー:', error);

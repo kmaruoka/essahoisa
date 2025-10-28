@@ -114,36 +114,47 @@ const unifiedPolling = async (
   // 現在時刻の詳細ログ
   logger.info(`現在時刻: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} (${currentTime}分)`);
   
-  // エントリをソート
-  const sortedEntries = [...newData.entries].sort((a, b) => {
-    if (!a.arrivalTime || !b.arrivalTime) return 0;
-    const [aHours, aMinutes] = a.arrivalTime.split(':').map(Number);
-    const [bHours, bMinutes] = b.arrivalTime.split(':').map(Number);
-    const aTime = aHours * 60 + aMinutes;
-    const bTime = bHours * 60 + bMinutes;
-    return aTime - bTime;
-  });
-  
-  // 表示対象のエントリをフィルタリング
-  const displayEntries = sortedEntries.filter(entry => {
-    if (!entry.arrivalTime) return false;
-    const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-    let arrivalTime = hours * 60 + minutes;
+  // (1) すべての時刻表データを走査し「finishTime < 現在時刻」なら翌日、そうでなければ当日とする
+  const normalizedEntries = newData.entries.map(entry => {
+    if (!entry.arrivalTime) return { ...entry, arrivalDatetime: null };
     
-    // 日をまたぐ場合の処理（現在時刻より小さい場合は翌日とみなす）
-    if (arrivalTime < currentTime) {
-      arrivalTime += 24 * 60; // 24時間（1440分）を追加
+    const [arrivalHours, arrivalMinutes] = entry.arrivalTime.split(':').map(Number);
+    const arrivalTime = arrivalHours * 60 + arrivalMinutes;
+    
+    // finishTimeを計算（なければ +5分）
+    let finishTime: number;
+    if (entry.finishTime) {
+      const [finishHours, finishMinutes] = entry.finishTime.split(':').map(Number);
+      finishTime = finishHours * 60 + finishMinutes;
+    } else {
+      finishTime = arrivalTime + 5;
     }
     
-    const isAfterCurrentTime = arrivalTime >= currentTime;
-    const timeDiff = arrivalTime - currentTime;
-    const shouldShow = isAfterCurrentTime && timeDiff <= beforeMinutes;
+    // finishTime < 現在時刻なら翌日、そうでなければ当日
+    const isNextDay = finishTime < currentTime;
+    const arrivalDatetime = isNextDay ? arrivalTime + 24 * 60 : arrivalTime;
     
-    // デバッグログ追加
-    logger.debug(`エントリフィルタリング: ${entry.supplierName} (${entry.arrivalTime}) - 到着時刻:${arrivalTime}分, 現在時刻:${currentTime}分, 時間差:${timeDiff}分, beforeMinutes:${beforeMinutes}, 表示対象:${shouldShow}`);
-    
-    return shouldShow;
+    return { ...entry, arrivalDatetime };
+  }).filter(entry => entry.arrivalDatetime !== null);
+
+  // (2) arrivalDatetimeでソート
+  const sortedEntries = normalizedEntries.sort((a, b) => {
+    if (a.arrivalDatetime === null || b.arrivalDatetime === null) return 0;
+    if (a.arrivalDatetime !== b.arrivalDatetime) {
+      return a.arrivalDatetime - b.arrivalDatetime;
+    }
+    // 同じ時刻の場合はorderでソート
+    const aOrder = parseInt(a.order || '0', 10);
+    const bOrder = parseInt(b.order || '0', 10);
+    return aOrder - bOrder;
   });
+
+  // (3) 先頭2つを表示（beforeMinutesの制約も考慮）
+  const displayEntries = sortedEntries.filter(entry => {
+    if (!entry.arrivalDatetime) return false;
+    const showStartTime = entry.arrivalDatetime - beforeMinutes;
+    return currentTime >= showStartTime;
+  }).slice(0, 2);
   
   // フィルタリング結果のサマリーログ
   logger.info(`フィルタリング結果: 全エントリ数=${sortedEntries.length}, 表示対象エントリ数=${displayEntries.length}, beforeMinutes=${beforeMinutes}`);
@@ -168,13 +179,32 @@ const unifiedPolling = async (
     logger.debug(`音声判定開始: speechTimings=[${speechTimings.join(', ')}], 対象エントリ数=${displayEntries.length}`);
     
     for (const entry of displayEntries) {
-      if (!entry.id || !entry.arrivalTime) continue;
+      if (!entry.id || !entry.arrivalTime || !entry.arrivalDatetime) continue;
 
-      const [hours, minutes] = entry.arrivalTime.split(':').map(Number);
-      const arrivalTime = hours * 60 + minutes;
-      const timeDiff = arrivalTime - currentTime;
+      // arrivalDatetimeを直接使用（既に正規化済み）
+      const arrivalTime = entry.arrivalDatetime;
+      
+      // finishTimeの計算（finishTimeがない場合はarrivalTime + 5分とする）
+      let finishTime: number;
+      if (entry.finishTime) {
+        const [finishHours, finishMinutes] = entry.finishTime.split(':').map(Number);
+        let finishTimeMinutes = finishHours * 60 + finishMinutes;
+        // 日をまたぐ場合の処理（arrivalTimeと同じ日付に合わせる）
+        if (finishTimeMinutes < currentTime) {
+          finishTimeMinutes += 24 * 60;
+        }
+        finishTime = finishTimeMinutes;
+      } else {
+        finishTime = arrivalTime + 5;
+      }
+      
+      // finishTimeを過ぎている場合は音声再生しない
+      if (currentTime > finishTime) {
+        logger.debug(`音声スキップ: ${entry.id} (${entry.arrivalTime}-${entry.finishTime || 'N/A'}) - finishTime(${finishTime}分)を過ぎている`);
+        continue;
+      }
 
-      logger.debug(`音声判定: ${entry.id} (${entry.arrivalTime}), 時間差: ${timeDiff}分`);
+      logger.debug(`音声判定: ${entry.id} (${entry.arrivalTime}-${entry.finishTime || 'N/A'}), 到着時刻:${arrivalTime}分, 終了時刻:${finishTime}分`);
 
       const pastTimings = speechTimings.filter(timingMinutes => {
         const speechTime = arrivalTime - timingMinutes;
@@ -216,6 +246,7 @@ const unifiedPolling = async (
           entryId: entry.id,
           supplierName: entry.supplierName,
           arrivalTime: entry.arrivalTime || '',
+          arrivalDatetime: entry.arrivalDatetime,
           monitorId: monitor.id,
           monitorTitle: monitor.title,
           isMainEntry,
