@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ScheduleFile, MonitorConfig, AppConfig } from '../types';
 import { 
   hasBeenPlayed, 
@@ -8,24 +8,9 @@ import {
 import { formatSpeech } from '../utils/formatSpeech';
 import { addToGlobalAudioQueue, processGlobalAudioQueue } from '../utils/audioPlaybackState';
 import { logger } from '../utils/logger';
+import { buildConfigUrl } from '../utils/configUtils';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-// 設定ファイルURL構築関数
-const buildConfigUrl = (): string => {
-  if (typeof window === 'undefined') {
-    return 'config/monitor-config.json';
-  }
-  const base = window.location.href.split(/[?#]/)[0];
-  const lastSlash = base.lastIndexOf('/');
-  const lastSegment = lastSlash >= 0 ? base.slice(lastSlash + 1) : base;
-  const hasExtension = lastSegment.includes('.');
-  const normalized = hasExtension
-    ? base.slice(0, lastSlash + 1)
-    : base.endsWith('/') ? base : base + '/';
-
-  return `${normalized}config/monitor-config.json`;
-};
 
 
 
@@ -348,6 +333,35 @@ class PollingManager {
 }
 
 const pollingManager = PollingManager.getInstance();
+
+// 設定取得専用フック
+export const useConfig = () => {
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInitialConfig = async () => {
+      try {
+        const initialConfig = await fetchConfig();
+        if (initialConfig) {
+          setConfig(initialConfig);
+        } else {
+          setError('設定ファイルの取得に失敗しました');
+        }
+      } catch (err) {
+        console.error('設定ファイル取得エラー:', err);
+        setError(err instanceof Error ? err.message : '設定ファイルの取得に失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialConfig();
+  }, []);
+
+  return { config, loading, error };
+};
 
 // ポーリングフック（setTimeoutの連鎖）
 export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true, isLeftSide?: boolean) => {

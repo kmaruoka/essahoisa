@@ -1,22 +1,32 @@
 :root {
+  /* ######## 基本設定 ######## */
   font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
   color-scheme: dark;
-  --color-background: #333;
+  --color-background: #000000;
   --color-header-bg: #156082;
   --color-header-text: #ffffff;
   --color-orange: #E97132;
   --color-green: #4EA72E;
   --color-border: #ffffff;
-  --color-note: #f5f5f5;
+  --color-white: #ffffff;
 
-  --color-next: red;
-  --color-time: orangered;
-  --color-supplier: yellow;
-  --color-preparation: lime;
-  --color-yard: green;
-  --color-lane: cyan;
-  --color-note: blue;
+  /* ######## 色設定 ######## */
+  /* 次 */
+  --color-next: #E97132;
+  /* 入線時間 */
+  --color-time: #E97132;
+  /* 仕入先名 */
+  --color-supplier: #E97132;
+  /* 準備 */
+  --color-preparation: #4EA72E;
+  /* 置場 */
+  --color-yard: #4EA72E;
+  /* 流動レーン */
+  --color-lane: #4EA72E;
+  /* 備考 */
+  --color-note: #ffffff;
 
+  /* ######## フォントサイズ設定 ######## */
   /* ヘッダ */
   --font-size-large: clamp(4rem, 8vw, 7.2rem);
   /* 次 */
@@ -113,7 +123,6 @@ html, body {
 .schedule-row.secondary .note {
   font-size: var(--font-size-responsive-small);
 }
-
 
 /* テキストの改行を防ぐための追加スタイル */
 .schedule-row .supplier {
