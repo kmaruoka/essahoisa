@@ -22,8 +22,8 @@ export const ScheduleScreen = ({
     error, 
     effectiveConfig, 
     effectiveMonitor, 
-    mainEntry: primaryEntry, 
-    nextEntry: secondaryEntry, 
+    primaryEntry, 
+    secondaryEntry, 
     SPEECH_SUPPORTED 
   } = useScheduleScreen({ 
     monitor, 

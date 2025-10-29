@@ -70,5 +70,5 @@ export const logger = new Logger();
 if (import.meta.env.PROD) {
   logger.setLevel(LogLevel.INFO);
 } else {
-  logger.setLevel(LogLevel.INFO);
+  logger.setLevel(LogLevel.DEBUG);
 }
