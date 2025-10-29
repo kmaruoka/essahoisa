@@ -1,22 +1,22 @@
 import { Container, Row, Col } from 'react-bootstrap';
-import { ScheduleRow } from './ScheduleRow';
+import { SchedulePane } from './SchedulePane';
 import { formatDisplayMessage } from '../utils/formatDisplayMessage';
-import { useScheduleScreen } from '../hooks/useScheduleScreen';
+import { useScheduleBoard } from '../hooks/useScheduleBoard';
 import type { AppConfig, MonitorConfig } from '../types';
 
-interface ScheduleScreenProps {
+interface ScheduleBoardProps {
   monitor: MonitorConfig;
   appConfig: AppConfig;
   isSplitView?: boolean;
   isLeft?: boolean;
 }
 
-export const ScheduleScreen = ({ 
+export const ScheduleBoard = ({ 
   monitor, 
   appConfig, 
   isSplitView = false,
   isLeft = true
-}: ScheduleScreenProps) => {
+}: ScheduleBoardProps) => {
   const { 
     loading, 
     error, 
@@ -25,7 +25,7 @@ export const ScheduleScreen = ({
     primaryEntry, 
     secondaryEntry, 
     SPEECH_SUPPORTED 
-  } = useScheduleScreen({ 
+  } = useScheduleBoard({ 
     monitor, 
     appConfig, 
     isVisible: true, 
@@ -54,7 +54,7 @@ export const ScheduleScreen = ({
             </div>
           )}
           {!loading && !error && primaryEntry && (
-            <ScheduleRow 
+            <SchedulePane 
               entry={primaryEntry} 
               variant="primary" 
               isSplitView={isSplitView}
@@ -76,7 +76,7 @@ export const ScheduleScreen = ({
                 </div>
               )}
               {!loading && !error && secondaryEntry && (
-                <ScheduleRow 
+                <SchedulePane 
                   entry={secondaryEntry} 
                   variant="secondary" 
                   isSplitView={isSplitView}

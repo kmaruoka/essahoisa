@@ -4,14 +4,14 @@ import type { ScheduleEntry } from '../types';
 import { Container, Row, Col } from 'react-bootstrap';
 import { addPlaybackStateListener, isEntryPlaying } from '../utils/audioPlaybackState';
 
-interface ScheduleRowProps {
+interface SchedulePaneProps {
   entry: ScheduleEntry;
   variant: 'primary' | 'secondary';
   isSplitView?: boolean;
   showNextIndicator?: boolean;
 }
 
-export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView = false, showNextIndicator = false }) => {
+export const SchedulePane: FC<SchedulePaneProps> = ({ entry, variant, isSplitView = false, showNextIndicator = false }) => {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   // 音声再生状態を監視

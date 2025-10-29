@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { AppConfig, MonitorConfig } from '../types';
-import { ScheduleScreen } from './ScheduleScreen';
+import { ScheduleBoard } from './ScheduleBoard';
 import { Container, Row, Col } from 'react-bootstrap';
 
-interface SplitScheduleScreenProps {
+interface SplitScheduleBoardProps {
   leftMonitor: MonitorConfig;
   rightMonitor: MonitorConfig;
   appConfig: AppConfig;
@@ -31,7 +31,7 @@ const ErrorMonitorDisplay = ({
   );
 };
 
-export const SplitScheduleScreen = ({ leftMonitor, rightMonitor, appConfig }: SplitScheduleScreenProps) => {
+export const SplitScheduleBoard = ({ leftMonitor, rightMonitor, appConfig }: SplitScheduleBoardProps) => {
   // URLパラメータから表示するモニターを決定
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
@@ -50,7 +50,7 @@ export const SplitScheduleScreen = ({ leftMonitor, rightMonitor, appConfig }: Sp
       <Row className="split-screen-row">
         <Col lg={6} md={12} className="split-panel">
           {leftMonitor && leftVisible ? (
-            <ScheduleScreen 
+            <ScheduleBoard 
               monitor={leftMonitor} 
               appConfig={appConfig} 
               isLeft={true}
@@ -70,7 +70,7 @@ export const SplitScheduleScreen = ({ leftMonitor, rightMonitor, appConfig }: Sp
         </Col>
         <Col lg={6} md={12} className="split-panel">
           {rightMonitor && rightVisible ? (
-            <ScheduleScreen 
+            <ScheduleBoard 
               monitor={rightMonitor} 
               appConfig={appConfig} 
               isLeft={false}

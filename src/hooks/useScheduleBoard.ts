@@ -4,14 +4,14 @@ import type { AppConfig, MonitorConfig } from '../types';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-interface UseScheduleScreenProps {
+interface UseScheduleBoardProps {
   monitor: MonitorConfig;
   appConfig: AppConfig;
   isVisible?: boolean;
   isLeftSide?: boolean; // 分割表示時の左右の位置（true=左、false=右、undefined=単一表示）
 }
 
-export const useScheduleScreen = ({ monitor, appConfig, isVisible = true, isLeftSide }: UseScheduleScreenProps) => {
+export const useScheduleBoard = ({ monitor, appConfig, isVisible = true, isLeftSide }: UseScheduleBoardProps) => {
   // ポーリングを使用（全てのロジックが統合されている）
   const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = usePolling(monitor, appConfig, isVisible, isLeftSide);
   

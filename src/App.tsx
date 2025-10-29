@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { ScheduleScreen } from './components/ScheduleScreen';
-import { SplitScheduleScreen } from './components/SplitScheduleScreen';
+import { ScheduleBoard } from './components/ScheduleBoard';
+import { SplitScheduleBoard } from './components/SplitScheduleBoard';
 import { useConfig } from './hooks/usePolling';
 import { useUrlParams } from './hooks/useUrlParams';
 
@@ -64,7 +64,7 @@ export default function App() {
         </div>
       );
     }
-    return <SplitScheduleScreen leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
+    return <SplitScheduleBoard leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
   }
 
   // 通常の単一表示の場合
@@ -76,5 +76,5 @@ export default function App() {
     );
   }
 
-  return <ScheduleScreen monitor={monitor} appConfig={config} />;
+  return <ScheduleBoard monitor={monitor} appConfig={config} />;
 }
