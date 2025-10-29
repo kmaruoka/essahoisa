@@ -1,0 +1,61 @@
+{
+  "configVersion": "1.0",
+  "defaultMonitorId": "1",
+  "pollingIntervalSeconds": 30,
+  "speechFormat": "{supplierReading}、がにゅうせんします。{materialReading}、のじゅんびをおねがいします。",
+  "displaySettings": {
+    "beforeMinutes": 630,
+    "emptyTimeMessage": "{beforeMinutes}分以内の入線予定はありません"
+  },
+  "monitors": [
+    {
+      "id": "1",
+      "title": "東置場",
+      "dataUrl": "/data/east.json",
+      "hasAudio": true,
+      "speechLang": "ja-JP",
+      "audioSettings": {
+        "timings": [300, 50, 25, 20, 15, 10, 5, 0]
+      }
+    },
+    {
+      "id": "2",
+      "title": "西置場",
+      "dataUrl": "/data/west.json",
+      "hasAudio": true,
+      "speechLang": "ja-JP",
+      "audioSettings": {
+        "timings": [300, 50, 25, 20, 18, 15, 10, 5, 0]
+      }
+    }
+  ],
+  "excel": {
+    "headerRows": 3,
+    "terminationColumn": "arrivalTime",
+    "twoSupplierJoiner": "\n",
+    "columns": {
+      "order": "B",
+      "arrivalTime": "C",
+      "finishTime": "D",
+      "supplierName": "E",
+      "preparation": "F",
+      "note": "G",
+      "yard": "H",
+      "lane": "I",
+      "supplierReading": "J",
+      "materialReading": "K"
+    },
+    "sheets": [
+      {
+        "key": "east",
+        "sheetName": "東側時間順 ",
+        "outputFile": "east.json"
+      },
+      {
+        "key": "west",
+        "sheetName": "西側時間順 ",
+        "outputFile": "west.json"
+      }
+    ]
+  }
+}

@@ -209,7 +209,7 @@ export const processGlobalAudioQueue = async () => {
   }
   
   isProcessingGlobalQueue = false;
-};
+　};
 
 
 
@@ -235,7 +235,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   
   try {
     // 設定ファイルから動的に取得（キャッシュなし、毎回取得）
-    const response = await fetch('/config/monitor-config.json', { 
+    const response = await fetch('/config/app-config.json', { 
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache',

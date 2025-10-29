@@ -1,7 +1,7 @@
 // 設定ファイルURL構築関数
 export const buildConfigUrl = (): string => {
   if (typeof window === 'undefined') {
-    return 'config/monitor-config.json';
+    return 'config/app-config.json';
   }
   const base = window.location.href.split(/[?#]/)[0];
   const lastSlash = base.lastIndexOf('/');
@@ -11,5 +11,5 @@ export const buildConfigUrl = (): string => {
     ? base.slice(0, lastSlash + 1)
     : base.endsWith('/') ? base : base + '/';
 
-  return `${normalized}config/monitor-config.json`;
+  return `${normalized}config/app-config.json`;
 };

@@ -130,7 +130,11 @@ const main = () => {
       throw new Error(`設定ファイルが見つかりません: ${configPath}`);
     }
 
-    const config: ExcelConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const fullConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    
+    // 統合設定ファイルからExcel設定を抽出
+    const config: ExcelConfig = fullConfig.excel || fullConfig;
+    
     if (!config.columns) {
       throw new Error('設定ファイルにcolumnsが定義されていません。');
     }
