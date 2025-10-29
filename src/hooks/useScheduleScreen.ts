@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSimplePolling } from './useSimplePolling';
+import { usePolling } from './usePolling';
 import type { AppConfig, MonitorConfig } from '../types';
 
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -12,8 +12,8 @@ interface UseScheduleScreenProps {
 }
 
 export const useScheduleScreen = ({ monitor, appConfig, isVisible = true, isLeftSide }: UseScheduleScreenProps) => {
-  // シンプルポーリングを使用（全てのロジックが統合されている）
-  const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = useSimplePolling(monitor, appConfig, isVisible, isLeftSide);
+  // ポーリングを使用（全てのロジックが統合されている）
+  const { startPolling, loading, error, currentConfig, currentMonitor, displayEntries } = usePolling(monitor, appConfig, isVisible, isLeftSide);
   
   // 最新の設定を使用（ポーリングで更新された設定を優先）
   const effectiveConfig = currentConfig || appConfig;
@@ -25,11 +25,10 @@ export const useScheduleScreen = ({ monitor, appConfig, isVisible = true, isLeft
     return stopPolling;
   }, []); // 依存配列を空にして、初回のみ実行
   
-  // 上段（メイン表示）
-  const mainEntries = displayEntries.slice(0, 1);
-  
-  // 下段（次の便）
-  const nextEntry = displayEntries[1];
+  // 上段（先発）
+  const primaryEntry = displayEntries[0];
+  // 下段（次発）
+  const secondaryEntry = displayEntries[1];
 
   // 音声API自動有効化（ユーザーインタラクション不要）
   useEffect(() => {
@@ -51,8 +50,8 @@ export const useScheduleScreen = ({ monitor, appConfig, isVisible = true, isLeft
     error,
     effectiveConfig,
     effectiveMonitor,
-    mainEntries,
-    nextEntry,
+    primaryEntry,
+    secondaryEntry,
     SPEECH_SUPPORTED
   };
 };

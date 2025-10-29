@@ -4,7 +4,7 @@
   "pollingIntervalSeconds": 30,
   "speechFormat": "{supplierReading}、がにゅうせんします。{materialReading}、のじゅんびをおねがいします。",
   "displaySettings": {
-    "beforeMinutes": 1800,
+    "beforeMinutes": 630,
     "emptyTimeMessage": "{beforeMinutes}分以内の入線予定はありません"
   },
   "monitors": [

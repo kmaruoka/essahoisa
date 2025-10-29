@@ -2,7 +2,7 @@
   "meta": {
     "sheetName": "東側時間順 ",
     "sourceFile": "発車データ.xlsx",
-    "generatedAt": "2025-10-24T01:37:19.558Z",
+    "generatedAt": "2025-10-29T05:07:00.274Z",
     "configKey": "east"
   },
   "entries": [
@@ -95,9 +95,9 @@
     {
       "id": "east-1020-008",
       "order": "9",
-      "arrivalTime": "11:10",
-      "finishTime": "11:15",
-      "supplierName": "三和マテリアル\n光徳便（高棚便空箱含む）あ",
+      "arrivalTime": "10:20",
+      "finishTime": "10:25",
+      "supplierName": "三和マテリアル\n京セラ",
       "preparation": "2社",
       "note": "混載不可",
       "yard": "東側のみ",
@@ -110,7 +110,7 @@
       "order": "11",
       "arrivalTime": "11:30",
       "finishTime": "11:35",
-      "supplierName": "三和マテリアル\n光徳便（高棚便空箱含む）",
+      "supplierName": "豊川加藤2便",
       "preparation": "単独",
       "yard": "東側のみ",
       "lane": "④or⑤",
@@ -122,7 +122,7 @@
       "order": "12",
       "arrivalTime": "11:40",
       "finishTime": "11:45",
-      "supplierName": "三和マテリアル\n光徳便（高棚便空箱含む）",
+      "supplierName": "東亜電機",
       "preparation": "単独",
       "yard": "西側のみ",
       "lane": "⑪",
@@ -184,7 +184,7 @@
       "order": "17",
       "arrivalTime": "16:00",
       "finishTime": "16:05",
-      "supplierName": "三和マテリアル\n光徳便（高棚便空箱含む）",
+      "supplierName": "日伸工業",
       "preparation": "単独",
       "yard": "東側のみ",
       "lane": "⑥",
@@ -214,7 +214,7 @@
       "note": "右表参考",
       "yard": "東西あり",
       "lane": "②③⑨⑩",
-      "supplierReading": "こうじょうないのみなさまにおしらせします。ひがしおきば、にじゅうさんじじゅっぷんに、たかたなびん",
+      "supplierReading": "たかたなびん",
       "materialReading": "せいひんえす"
     },
     {

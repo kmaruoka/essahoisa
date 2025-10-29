@@ -9,23 +9,21 @@ interface ScheduleScreenProps {
   appConfig: AppConfig;
   isSplitView?: boolean;
   isLeft?: boolean;
-  showNextIndicator?: boolean;
 }
 
 export const ScheduleScreen = ({ 
   monitor, 
   appConfig, 
   isSplitView = false,
-  isLeft = true,
-  showNextIndicator = true
+  isLeft = true
 }: ScheduleScreenProps) => {
   const { 
     loading, 
     error, 
     effectiveConfig, 
     effectiveMonitor, 
-    mainEntries, 
-    nextEntry, 
+    mainEntry: primaryEntry, 
+    nextEntry: secondaryEntry, 
     SPEECH_SUPPORTED 
   } = useScheduleScreen({ 
     monitor, 
@@ -50,42 +48,39 @@ export const ScheduleScreen = ({
         <Col>
           {loading && <div className="placeholder">データを読み込み中...</div>}
           {!loading && error && <div className="placeholder">{error}</div>}
-          {!loading && !error && mainEntries.length === 0 && (
+          {!loading && !error && !primaryEntry && (
             <div className="placeholder">
               {formatDisplayMessage(effectiveConfig)}
             </div>
           )}
-          {!loading && !error && mainEntries.map((entry) => (
+          {!loading && !error && primaryEntry && (
             <ScheduleRow 
-              key={entry.id} 
-              entry={entry} 
+              entry={primaryEntry} 
               variant="primary" 
-              isSplitView={isSplitView} 
+              isSplitView={isSplitView}
+              showNextIndicator={false}
             />
-          ))}
+          )}
         </Col>
       </Row>
       <Row className="divider" style={{ flexShrink: 0 }} />
       <Row className="footer align-items-center" style={{ minHeight: '30vh' }}>
         <Col>
           <Row className="footer-inner">
-            {!isSplitView && showNextIndicator && (
-              <Col xs="auto" className="next-indicator">次</Col>
-            )}
             <Col>
               {loading && <div className="placeholder">データを読み込み中...</div>}
               {!loading && error && <div className="placeholder">{error}</div>}
-              {!loading && !error && !nextEntry && (
+              {!loading && !error && !secondaryEntry && (
                 <div className="placeholder">
                   {formatDisplayMessage(effectiveConfig)}
                 </div>
               )}
-              {!loading && !error && nextEntry && (
+              {!loading && !error && secondaryEntry && (
                 <ScheduleRow 
-                  entry={nextEntry} 
+                  entry={secondaryEntry} 
                   variant="secondary" 
                   isSplitView={isSplitView}
-                  showNextIndicator={isSplitView}
+                  showNextIndicator={true}
                 />
               )}
             </Col>

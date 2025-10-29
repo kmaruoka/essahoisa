@@ -1,13 +1,22 @@
 :root {
   font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
   color-scheme: dark;
-  --color-background: #000000;
+  --color-background: #333;
   --color-header-bg: #156082;
   --color-header-text: #ffffff;
   --color-orange: #E97132;
   --color-green: #4EA72E;
   --color-border: #ffffff;
   --color-note: #f5f5f5;
+
+  --color-next: red;
+  --color-time: orangered;
+  --color-supplier: yellow;
+  --color-preparation: lime;
+  --color-yard: green;
+  --color-lane: cyan;
+  --color-note: blue;
+
   /* ヘッダ */
   --font-size-large: clamp(4rem, 8vw, 7.2rem);
   /* 次 */
@@ -98,6 +107,13 @@ html, body {
   font-size: var(--font-size-responsive-medium);
 }
 
+.schedule-row.secondary .preparation,
+.schedule-row.secondary .yard,
+.schedule-row.secondary .lane,
+.schedule-row.secondary .note {
+  font-size: var(--font-size-responsive-small);
+}
+
 
 /* テキストの改行を防ぐための追加スタイル */
 .schedule-row .supplier {
@@ -150,7 +166,7 @@ html, body {
 }
 
 .schedule-row .lane {
-  color: var(--color-green);
+  color: var(--color-lane);
   font-size: var(--font-size-responsive-medium);
 }
 
@@ -175,17 +191,26 @@ html, body {
 }
 
 /* 文字色 */
-.schedule-row .time,
+.schedule-row .time {
+  color: var(--color-time);
+}
+
 .schedule-row .supplier {
-  color: var(--color-orange);
+  color: var(--color-supplier);
 }
 
 .schedule-row .lane-number,
-.schedule-row .preparation,
-.schedule-row .yard,
 .schedule-row .lane,
 .schedule-row .details {
-  color: var(--color-green);
+  color: var(--color-lane);
+}
+
+.schedule-row .preparation {
+  color: var(--color-preparation);
+}
+
+.schedule-row .yard {
+  color: var(--color-yard);
 }
 
 
@@ -248,12 +273,12 @@ html, body {
 .next-indicator {
   width: 1.5em;
   height: 1.5em;
-  border: 0.08em solid var(--color-orange);
+  border: 0.08em solid var(--color-next);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-orange);
+  color: var(--color-next);
   font-size: var(--font-size-responsive-medium);
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -289,7 +314,8 @@ html, body {
 .split-screen .next-indicator {
   width: 1.2em;
   height: 1.2em;
-  border: 0.15em solid var(--color-orange);
+  border: 0.15em solid var(--color-next);
+  color: var(--color-next);
   font-size: clamp(1.5rem, 2.5vw, 3rem);
 }
 

@@ -51,10 +51,13 @@ export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView 
         </>
       ) : (
         <Row className="mt-1 align-items-baseline">
+          {showNextIndicator && (
+            <Col md="auto" lg="auto" className="next-indicator">次</Col>
+          )}
           <Col md={2} lg={2} className="time">
             {entry.arrivalTime || '-'}
           </Col>
-          <Col md={10} lg={10} className="supplier">
+          <Col md={showNextIndicator ? 9 : 10} lg={showNextIndicator ? 9 : 10} className="supplier">
             {entry.supplierName.split('\n').map((line, index) => (
               <div key={index} className="supplier-text">{line}</div>
             ))}
@@ -62,21 +65,20 @@ export const ScheduleRow: FC<ScheduleRowProps> = ({ entry, variant, isSplitView 
         </Row>
       )}
       
-      {/* 2-3行目：緑色の文字を結合して改行表示 */}
+      {/* 2行目：詳細を横並びで可変ラップ表示（元レイアウト） */}
       <Row className="mt-1">
-        <Col md={2} lg={2}></Col>
-        <Col md={10} lg={10}>
-          <div className="green-text">
-            {[
-              entry.preparation && entry.yard ? `${entry.preparation}　${entry.yard}` : 
-              entry.preparation || entry.yard || '',
-              entry.lane || ''
-            ].filter(Boolean).join('\n')}
-            {entry.note && (
-              <span className="note-text">　{entry.note}</span>
-            )}
-          </div>
-        </Col>
+        {entry.preparation && (
+          <Col md="auto" lg="auto"><span className="preparation">{entry.preparation}</span></Col>
+        )}
+        {entry.yard && (
+          <Col md="auto" lg="auto"><span className="yard">{entry.yard}</span></Col>
+        )}
+        {entry.lane && (
+          <Col md="auto" lg="auto"><span className="lane">{entry.lane}</span></Col>
+        )}
+        {entry.note && (
+          <Col md="auto" lg="auto"><span className="note-text">{entry.note}</span></Col>
+        )}
       </Row>
     </Container>
   );
