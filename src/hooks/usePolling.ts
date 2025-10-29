@@ -13,8 +13,6 @@ import { buildConfigUrl } from '../utils/configUtils';
 const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 
-
-
 // データ取得関数
 const fetchData = async (dataUrl: string): Promise<ScheduleFile | null> => {
   try {
@@ -59,7 +57,6 @@ const unifiedPolling = async (
   isVisible: boolean = true,
   isLeftSide?: boolean // 分割表示時の左右の位置（true=左、false=右、undefined=単一表示）
 ) => {
-  logger.debug(`統合ポーリング実行: monitor=${monitor.title}, hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}, isVisible=${isVisible}`);
   
   // 1. 設定ファイル取得
   const latestConfig = await fetchConfig();
@@ -87,17 +84,12 @@ const unifiedPolling = async (
     setLoading(false);
     return;
   }
-  logger.debug(`データ取得完了: エントリ数=${newData.entries.length}`);
-  logger.debug(`データURL: ${monitor.dataUrl}`);
-  logger.debug(`最新エントリ: ${newData.entries.slice(-3).map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
   
   // 3. 表示用エントリの処理（全てのロジックを統合）
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
   const beforeMinutes = config.displaySettings?.beforeMinutes ?? 30;
   
-  // 現在時刻の詳細ログ
-  logger.info(`現在時刻: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} (${currentTime}分)`);
   
   // (1) すべての時刻表データを走査し「finishTime < 現在時刻」なら翌日、そうでなければ当日とする
   const normalizedEntries = newData.entries.map(entry => {
@@ -141,11 +133,6 @@ const unifiedPolling = async (
     return currentTime >= showStartTime;
   }).slice(0, 2);
   
-  // フィルタリング結果のサマリーログ
-  logger.info(`フィルタリング結果: 全エントリ数=${sortedEntries.length}, 表示対象エントリ数=${displayEntries.length}, beforeMinutes=${beforeMinutes}`);
-  if (displayEntries.length > 0) {
-    logger.info(`表示対象エントリ: ${displayEntries.map(e => `${e.supplierName}(${e.arrivalTime})`).join(', ')}`);
-  }
 
   // データを状態に保存
   setData(newData);
@@ -154,14 +141,12 @@ const unifiedPolling = async (
   setLoading(false);
   
   // 4. 音声チェック（音声が有効で表示されている場合のみ）
-  logger.debug(`音声チェック条件: hasAudio=${monitor.hasAudio}, SPEECH_SUPPORTED=${SPEECH_SUPPORTED}, isVisible=${isVisible}, displayEntries.length=${displayEntries.length}`);
   if (monitor.hasAudio && SPEECH_SUPPORTED && isVisible) {
     // 最新の設定からtimingsを取得
     const monitorConfig = config.monitors.find(m => m.id === monitor.id);
     const audioSettings = monitorConfig?.audioSettings || monitor.audioSettings;
     const speechTimings = audioSettings?.timings ?? [0];
     
-    logger.debug(`音声判定開始: speechTimings=[${speechTimings.join(', ')}], 対象エントリ数=${displayEntries.length}`);
     
     for (const entry of displayEntries) {
       if (!entry.id || !entry.arrivalTime || !entry.arrivalDatetime) continue;
@@ -185,36 +170,25 @@ const unifiedPolling = async (
       
       // finishTimeを過ぎている場合は音声再生しない
       if (currentTime > finishTime) {
-        logger.debug(`音声スキップ: ${entry.id} (${entry.arrivalTime}-${entry.finishTime || 'N/A'}) - finishTime(${finishTime}分)を過ぎている`);
         continue;
       }
-
-      logger.debug(`音声判定: ${entry.id} (${entry.arrivalTime}-${entry.finishTime || 'N/A'}), 到着時刻:${arrivalTime}分, 終了時刻:${finishTime}分`);
 
       const pastTimings = speechTimings.filter(timingMinutes => {
         const speechTime = arrivalTime - timingMinutes;
         const shouldPlay = currentTime >= speechTime;
-        const speechTimeFormatted = `${Math.floor(speechTime / 60).toString().padStart(2, '0')}:${(speechTime % 60).toString().padStart(2, '0')}`;
-        const currentTimeFormatted = `${Math.floor(currentTime / 60).toString().padStart(2, '0')}:${(currentTime % 60).toString().padStart(2, '0')}`;
-        logger.debug(`  タイミング${timingMinutes}分: 再生時刻${speechTimeFormatted}(${speechTime}分), 現在時刻${currentTimeFormatted}(${currentTime}分), 判定=${shouldPlay}`);
         return shouldPlay;
       });
 
-      logger.debug(`  条件を満たすタイミング: [${pastTimings.join(', ')}]`);
-
       if (pastTimings.length === 0) {
-        logger.debug(`  → 条件を満たすタイミングなし、スキップ`);
         continue;
       }
 
       // 複数のタイミングが条件を満たす場合、最小値（最も近いタイミング）を選択
       const sortedPastTimings = [...pastTimings].sort((a, b) => a - b);
-      logger.debug(`  ソート後タイミング: [${sortedPastTimings.join(', ')}]`);
 
       let targetTiming = null;
       for (const timingMinutes of sortedPastTimings) {
         const hasPlayed = hasBeenPlayed(entry.id, timingMinutes);
-        logger.debug(`    タイミング${timingMinutes}分: 再生済み=${hasPlayed}`);
         if (!hasPlayed) {
           targetTiming = timingMinutes;
           break;
@@ -222,7 +196,6 @@ const unifiedPolling = async (
       }
 
       if (targetTiming !== null) {
-        logger.debug(`  → 音声再生対象: タイミング${targetTiming}分`);
         // グローバル音声キューに追加
         const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
         const speechText = formatSpeech(config.speechFormat, entry);
@@ -248,8 +221,6 @@ const unifiedPolling = async (
           });
         }, 0);
         // 連続再生のためbreakを削除
-      } else {
-        logger.debug(`  → 音声再生対象なし（全て再生済み）`);
       }
     }
   }
@@ -257,7 +228,7 @@ const unifiedPolling = async (
 
 // メモリ使用量監視
 const logMemoryUsage = () => {
-  if ('memory' in performance) {
+  if (process.env.NODE_ENV !== 'production' && 'memory' in performance) {
     const memory = (performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
     logger.debug('メモリ使用量:', {
       used: Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB',
@@ -377,9 +348,6 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
   const startPolling = () => {
     const scheduleNext = async () => {
       if (!pollingManager.isRunning(monitorKey)) return;
-      
-      const pollStartTime = new Date();
-      logger.debug(`ポーリング実行開始: ${pollStartTime.getHours().toString().padStart(2, '0')}:${pollStartTime.getMinutes().toString().padStart(2, '0')}:${pollStartTime.getSeconds().toString().padStart(2, '0')}`);
       
       try {
         // メモリ使用量をログ出力

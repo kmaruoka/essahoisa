@@ -47,8 +47,8 @@
   --font-size-medium: clamp(1.75rem, 2.8vw, 4.55rem);
   --font-size-small: clamp(1.4rem, 2.1vw, 3.85rem);
   --font-size-responsive-large: clamp(1.26rem, 4.2vw, 4.7rem);
-  --font-size-responsive-medium: clamp(1.05rem, 3.5vw, 4.0rem);
-  --font-size-responsive-small: clamp(0.84rem, 3.0vw, 3.5rem);
+  --font-size-responsive-medium: clamp(1.0rem, 3.0vw, 4.0rem);
+  --font-size-responsive-small: clamp(1.0rem, 3.0vw, 3.0rem);
 }
 
 html, body {
@@ -321,9 +321,9 @@ html, body {
 
 /* スプリット表示時の「次」の丸のサイズ調整 */
 .split-screen .next-indicator {
-  width: 1.2em;
-  height: 1.2em;
-  border: 0.15em solid var(--color-next);
+  width: 1.8em;
+  height: 1.8em;
+  border: 0.1em solid var(--color-next);
   color: var(--color-next);
   font-size: clamp(1.5rem, 2.5vw, 3rem);
 }
@@ -466,7 +466,7 @@ html, body {
 }
 
 /* レスポンシブ対応：モバイルでは縦並び表示 */
-@media (max-width: 992px) {
+@media (max-width: 576px) {
   .split-screen-row {
     flex-direction: column;
   }

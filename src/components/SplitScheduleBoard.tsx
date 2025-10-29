@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
-import type { AppConfig, MonitorConfig } from '../types';
+import React from 'react';
+import type { MonitorConfig } from '../types';
 import { ScheduleBoard } from './ScheduleBoard';
 import { Container, Row, Col } from 'react-bootstrap';
 
 interface SplitScheduleBoardProps {
   leftMonitor: MonitorConfig;
   rightMonitor: MonitorConfig;
-  appConfig: AppConfig;
 }
 
 // エラーモニタ用のコンポーネント
@@ -31,61 +30,38 @@ const ErrorMonitorDisplay = ({
   );
 };
 
-export const SplitScheduleBoard = ({ leftMonitor, rightMonitor, appConfig }: SplitScheduleBoardProps) => {
-  // URLパラメータから表示するモニターを決定
-  const [leftVisible, setLeftVisible] = useState(true);
-  const [rightVisible, setRightVisible] = useState(true);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const showLeft = params.get('showLeft') !== 'false';
-    const showRight = params.get('showRight') !== 'false';
-    setLeftVisible(showLeft);
-    setRightVisible(showRight);
-  }, []);
+export const SplitScheduleBoard = ({ leftMonitor, rightMonitor }: SplitScheduleBoardProps) => {
 
   return (
     <Container fluid className="split-screen-container">
       
       <Row className="split-screen-row">
-        <Col lg={6} md={12} className="split-panel">
-          {leftMonitor && leftVisible ? (
+        <Col xs={6} className="split-panel">
+          {leftMonitor ? (
             <ScheduleBoard 
               monitor={leftMonitor} 
-              appConfig={appConfig} 
               isLeft={true}
               isSplitView={true}
-              showNextIndicator={false}
             />
-          ) : leftVisible ? (
+          ) : (
             <ErrorMonitorDisplay 
               errorMessage="モニタ設定が見つかりません。"
               isLeft={true}
             />
-          ) : (
-            <div className="screen split-screen left-panel">
-              <div className="placeholder">左側のモニターは非表示です</div>
-            </div>
           )}
         </Col>
-        <Col lg={6} md={12} className="split-panel">
-          {rightMonitor && rightVisible ? (
+        <Col xs={6} className="split-panel">
+          {rightMonitor ? (
             <ScheduleBoard 
               monitor={rightMonitor} 
-              appConfig={appConfig} 
               isLeft={false}
               isSplitView={true}
-              showNextIndicator={false}
             />
-          ) : rightVisible ? (
+          ) : (
             <ErrorMonitorDisplay 
               errorMessage="モニタ設定が見つかりません。"
               isLeft={false}
             />
-          ) : (
-            <div className="screen split-screen right-panel">
-              <div className="placeholder">右側のモニターは非表示です</div>
-            </div>
           )}
         </Col>
       </Row>

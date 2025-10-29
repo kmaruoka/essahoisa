@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 import { ScheduleBoard } from './components/ScheduleBoard';
 import { SplitScheduleBoard } from './components/SplitScheduleBoard';
-import { useConfig } from './hooks/usePolling';
 import { useUrlParams } from './hooks/useUrlParams';
 
 export default function App() {
-  const { config, loading, error } = useConfig();
-  const { isSplitView, monitor, leftMonitor, rightMonitor } = useUrlParams(config);
+  const { isSplitView, monitor, leftMonitor, rightMonitor } = useUrlParams();
 
   // 全画面表示の機能
   useEffect(() => {
@@ -29,31 +27,6 @@ export default function App() {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="screen">
-        <div className="placeholder">
-          <div className="loading-spinner"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="screen">
-        <div className="placeholder">{error}</div>
-      </div>
-    );
-  }
-
-  if (!config) {
-    return (
-      <div className="screen">
-        <div className="placeholder">設定が見つかりません。</div>
-      </div>
-    );
-  }
 
   // 左右分割表示の場合
   if (isSplitView) {
@@ -64,7 +37,7 @@ export default function App() {
         </div>
       );
     }
-    return <SplitScheduleBoard leftMonitor={leftMonitor} rightMonitor={rightMonitor} appConfig={config} />;
+    return <SplitScheduleBoard leftMonitor={leftMonitor} rightMonitor={rightMonitor} />;
   }
 
   // 通常の単一表示の場合
@@ -76,5 +49,5 @@ export default function App() {
     );
   }
 
-  return <ScheduleBoard monitor={monitor} appConfig={config} />;
+  return <ScheduleBoard monitor={monitor} />;
 }

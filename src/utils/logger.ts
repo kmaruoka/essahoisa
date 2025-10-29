@@ -10,7 +10,7 @@ export enum LogLevel {
 class Logger {
   private level: LogLevel = LogLevel.INFO; // デフォルトはINFOレベル
   private logHistory = new Map<string, number>();
-  private readonly LOG_DEDUP_INTERVAL = 2000; // 2秒以内の同じメッセージは重複とみなす
+  private readonly LOG_DEDUP_INTERVAL = 10000; // 10秒以内の同じメッセージは重複とみなす
 
   setLevel(level: LogLevel) {
     this.level = level;
@@ -67,7 +67,7 @@ class Logger {
 export const logger = new Logger();
 
 // 本番環境ではINFOレベル、開発環境ではDEBUGレベル
-if (import.meta.env.PROD) {
+if (process.env.NODE_ENV === 'production') {
   logger.setLevel(LogLevel.INFO);
 } else {
   logger.setLevel(LogLevel.DEBUG);

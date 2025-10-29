@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import type { MonitorConfig, AppConfig } from '../types';
+import type { MonitorConfig } from '../types';
+import { useConfig } from './usePolling';
 
 interface UseUrlParamsResult {
   monitorIds: string[];
@@ -9,7 +10,8 @@ interface UseUrlParamsResult {
   rightMonitor: MonitorConfig | undefined;
 }
 
-export const useUrlParams = (config: AppConfig | null): UseUrlParamsResult => {
+export const useUrlParams = (): UseUrlParamsResult => {
+  const { config } = useConfig();
   // URLパラメータからmonitorのIDを取得（複数指定可能）
   const monitorIds = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -17,10 +19,10 @@ export const useUrlParams = (config: AppConfig | null): UseUrlParamsResult => {
     
     // monitorパラメータが指定されていない場合はデフォルトを使用
     if (monitorParams.length === 0) {
-      return [config?.defaultMonitorId ?? config?.monitors[0]?.id ?? null].filter(Boolean);
+      return [config?.defaultMonitorId ?? config?.monitors[0]?.id ?? null].filter(Boolean) as string[];
     }
     
-    return monitorParams.filter(Boolean);
+    return monitorParams.filter(Boolean) as string[];
   }, [config]);
 
   // 分割表示かどうかを判定（monitorパラメータが2つ以上の場合）

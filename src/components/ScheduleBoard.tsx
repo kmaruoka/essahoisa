@@ -2,21 +2,40 @@ import { Container, Row, Col } from 'react-bootstrap';
 import { SchedulePane } from './SchedulePane';
 import { formatDisplayMessage } from '../utils/formatDisplayMessage';
 import { useScheduleBoard } from '../hooks/useScheduleBoard';
-import type { AppConfig, MonitorConfig } from '../types';
+import { useConfig } from '../hooks/usePolling';
+import type { MonitorConfig } from '../types';
 
 interface ScheduleBoardProps {
   monitor: MonitorConfig;
-  appConfig: AppConfig;
   isSplitView?: boolean;
   isLeft?: boolean;
 }
 
 export const ScheduleBoard = ({ 
   monitor, 
-  appConfig, 
   isSplitView = false,
   isLeft = true
 }: ScheduleBoardProps) => {
+  const { config, loading: configLoading, error: configError } = useConfig();
+  
+  if (configLoading) {
+    return (
+      <div className="screen">
+        <div className="placeholder">
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (configError || !config) {
+    return (
+      <div className="screen">
+        <div className="placeholder">{configError || '設定が見つかりません。'}</div>
+      </div>
+    );
+  }
+
   const { 
     loading, 
     error, 
@@ -27,7 +46,7 @@ export const ScheduleBoard = ({
     SPEECH_SUPPORTED 
   } = useScheduleBoard({ 
     monitor, 
-    appConfig, 
+    appConfig: config, 
     isVisible: true, 
     isLeftSide: isSplitView ? isLeft : undefined 
   });
@@ -58,7 +77,6 @@ export const ScheduleBoard = ({
               entry={primaryEntry} 
               variant="primary" 
               isSplitView={isSplitView}
-              showNextIndicator={false}
             />
           )}
         </Col>
@@ -80,7 +98,6 @@ export const ScheduleBoard = ({
                   entry={secondaryEntry} 
                   variant="secondary" 
                   isSplitView={isSplitView}
-                  showNextIndicator={true}
                 />
               )}
             </Col>
