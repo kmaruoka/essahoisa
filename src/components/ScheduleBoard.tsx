@@ -18,6 +18,22 @@ export const ScheduleBoard = ({
 }: ScheduleBoardProps) => {
   const { config, loading: configLoading, error: configError } = useConfig();
   
+  // フックは条件分岐の前に呼ぶ必要がある
+  const { 
+    loading, 
+    error, 
+    effectiveConfig, 
+    effectiveMonitor, 
+    primaryEntry, 
+    secondaryEntry, 
+    SPEECH_SUPPORTED 
+  } = useScheduleBoard({ 
+    monitor, 
+    appConfig: config || { monitors: [], displaySettings: { beforeMinutes: 30, emptyTimeMessage: '現在、予定はありません' }, speechFormat: '' }, 
+    isVisible: true, 
+    isLeftSide: isSplitView ? isLeft : undefined 
+  });
+  
   if (configLoading) {
     return (
       <div className="screen">
@@ -35,21 +51,6 @@ export const ScheduleBoard = ({
       </div>
     );
   }
-
-  const { 
-    loading, 
-    error, 
-    effectiveConfig, 
-    effectiveMonitor, 
-    primaryEntry, 
-    secondaryEntry, 
-    SPEECH_SUPPORTED 
-  } = useScheduleBoard({ 
-    monitor, 
-    appConfig: config, 
-    isVisible: true, 
-    isLeftSide: isSplitView ? isLeft : undefined 
-  });
 
   const containerClass = isSplitView 
     ? `screen split-screen ${isLeft ? 'left-panel' : 'right-panel'}`

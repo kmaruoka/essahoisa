@@ -305,35 +305,6 @@ class PollingManager {
 
 const pollingManager = PollingManager.getInstance();
 
-// 設定取得専用フック
-export const useConfig = () => {
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchInitialConfig = async () => {
-      try {
-        const initialConfig = await fetchConfig();
-        if (initialConfig) {
-          setConfig(initialConfig);
-        } else {
-          setError('設定ファイルの取得に失敗しました');
-        }
-      } catch (err) {
-        console.error('設定ファイル取得エラー:', err);
-        setError(err instanceof Error ? err.message : '設定ファイルの取得に失敗しました');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInitialConfig();
-  }, []);
-
-  return { config, loading, error };
-};
-
 // ポーリングフック（setTimeoutの連鎖）
 export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisible: boolean = true, isLeftSide?: boolean) => {
   const [data, setData] = useState<ScheduleFile | null>(null);
@@ -395,4 +366,33 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
   };
 
   return { startPolling, data, loading, error, currentConfig, currentMonitor, displayEntries };
+};
+
+// 設定取得専用フック
+export const useConfig = () => {
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInitialConfig = async () => {
+      try {
+        const initialConfig = await fetchConfig();
+        if (initialConfig) {
+          setConfig(initialConfig);
+        } else {
+          setError('設定ファイルの取得に失敗しました');
+        }
+      } catch (err) {
+        console.error('設定ファイル取得エラー:', err);
+        setError(err instanceof Error ? err.message : '設定ファイルの取得に失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialConfig();
+  }, []);
+
+  return { config, loading, error };
 };
