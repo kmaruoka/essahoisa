@@ -37,6 +37,7 @@ interface GlobalAudioQueueItem {
 const globalAudioQueue: GlobalAudioQueueItem[] = [];
 let isProcessingGlobalQueue = false;
 const processedEntries = new Set<string>(); // 処理済みまたは処理中のエントリを追跡
+let batchProcessingTimeout: number | null = null; // バッチ処理用のタイムアウト
 
 // 状態変更のリスナー
 type StateChangeListener = (state: AudioPlaybackState) => void;
@@ -109,22 +110,36 @@ export const clearPlayedEntries = () => {
 
 // グローバル音声キューに追加
 export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
+  // 既に再生済みの場合はスキップ
+  if (isEntryAlreadyPlayed(item.entryId)) {
+    return;
+  }
+  
   // 既に処理済みまたは処理中の場合はスキップ
   if (processedEntries.has(item.entryId)) {
-    logger.debug(`音声キューに既に存在するためスキップ: ${item.supplierName} (${item.arrivalTime})`);
     return;
   }
   
   // 既に同じentryIdの音声がキューに存在する場合はスキップ
   const existingItem = globalAudioQueue.find(queueItem => queueItem.entryId === item.entryId);
   if (existingItem) {
-    logger.debug(`音声キューに既に存在するためスキップ: ${item.supplierName} (${item.arrivalTime})`);
     return;
   }
   
   logger.info(`音声キューに追加: ${item.supplierName} (${item.arrivalTime}) - ${item.monitorTitle}`);
   globalAudioQueue.push(item);
   processedEntries.add(item.entryId);
+  
+  // バッチ処理をスケジュール（既存のタイムアウトをクリアして新しいタイムアウトを設定）
+  if (batchProcessingTimeout) {
+    clearTimeout(batchProcessingTimeout);
+  }
+  
+  batchProcessingTimeout = window.setTimeout(() => {
+    processGlobalAudioQueue().catch(error => {
+      logger.error(`バッチ音声キュー処理エラー:`, error);
+    });
+  }, 500); // 500ms後にバッチ処理を実行（全モニターの音声を確実に収集）
 };
 
 // グローバル音声キューの優先順位を計算
@@ -137,12 +152,21 @@ const getGlobalAudioPriority = (item: GlobalAudioQueueItem): number => {
   
   // 第3優先順位：左・右の順（左=0, 右=1）
   // 分割表示の場合は実際の左右の位置を使用、そうでなければmonitorIdで判定
-  const sidePriority = item.isLeftSide !== undefined 
-    ? (item.isLeftSide ? 0 : 1)  // 分割表示時は実際の左右の位置
-    : (item.monitorId === "1" ? 0 : 1);  // 単一表示時はmonitorIdで判定
+  let sidePriority: number;
+  if (item.isLeftSide !== undefined) {
+    // 分割表示時は実際の左右の位置を使用
+    sidePriority = item.isLeftSide ? 0 : 1;
+  } else {
+    // 単一表示時またはisLeftSideが未定義の場合はmonitorIdで判定
+    // monitorId="1"は左、monitorId="2"は右とする
+    sidePriority = item.monitorId === "1" ? 0 : 1;
+  }
   
-  const priority = arrivalTimeMinutes * 10000 + segmentPriority * 100 + sidePriority;
-  
+  // 正しい優先順位の重み付け
+  // 第1優先：到着時刻（分） × 1000000
+  // 第2優先：上段・下段 × 10000  
+  // 第3優先：左・右 × 100
+  const priority = arrivalTimeMinutes * 1000000 + segmentPriority * 10000 + sidePriority * 100;
   
   return priority;
 };
@@ -200,7 +224,9 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   // 実際に再生されたタイミングを計算
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
-  const arrivalTimeMinutes = parseInt(item.arrivalTime.split(':')[0]) * 60 + parseInt(item.arrivalTime.split(':')[1]);
+  
+  // arrivalDatetimeを使用（正規化済みの到着時刻）
+  const arrivalTimeMinutes = item.arrivalDatetime || 0;
   const timeDifference = arrivalTimeMinutes - currentTime;
   
   // 設定されているタイミングの中から最も近い値を選択
@@ -371,8 +397,8 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   } finally {
     // 音声再生状態を終了
     endPlayback();
-    // 処理済みエントリから削除（次回の再生のために）
-    processedEntries.delete(item.entryId);
+    // processedEntriesからは削除しない（重複再生を防ぐため）
+    // 再生済み記録（playedEntries）で重複を防ぐ
   }
 };
 

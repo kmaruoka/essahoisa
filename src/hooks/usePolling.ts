@@ -6,7 +6,7 @@ import {
   clearPlaybackRecords
 } from '../utils/audioPlaybackManager';
 import { formatSpeech } from '../utils/formatSpeech';
-import { addToGlobalAudioQueue, processGlobalAudioQueue } from '../utils/audioPlaybackState';
+import { addToGlobalAudioQueue } from '../utils/audioPlaybackState';
 import { logger } from '../utils/logger';
 import { buildConfigUrl } from '../utils/configUtils';
 
@@ -147,6 +147,20 @@ const unifiedPolling = async (
     const audioSettings = monitorConfig?.audioSettings || monitor.audioSettings;
     const speechTimings = audioSettings?.timings ?? [0];
     
+    // このモニターの音声エントリを一時的に保存
+    const audioEntries: Array<{
+      entryId: string;
+      supplierName: string;
+      arrivalTime: string;
+      arrivalDatetime: number;
+      monitorId: string;
+      monitorTitle: string;
+      isMainEntry: boolean;
+      timing: number;
+      speechText: string;
+      speechLang: string;
+      isLeftSide?: boolean;
+    }> = [];
     
     for (const entry of displayEntries) {
       if (!entry.id || !entry.arrivalTime || !entry.arrivalDatetime) continue;
@@ -196,11 +210,11 @@ const unifiedPolling = async (
       }
 
       if (targetTiming !== null) {
-        // グローバル音声キューに追加
+        // 音声エントリを一時的に保存
         const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
         const speechText = formatSpeech(config.speechFormat, entry);
         
-        addToGlobalAudioQueue({
+        audioEntries.push({
           entryId: entry.id,
           supplierName: entry.supplierName,
           arrivalTime: entry.arrivalTime || '',
@@ -213,15 +227,14 @@ const unifiedPolling = async (
           speechLang: monitor.speechLang || 'ja-JP',
           isLeftSide // 分割表示時の左右の位置
         });
-        
-        // 非同期でグローバル音声キュー処理を実行
-        setTimeout(() => {
-          processGlobalAudioQueue().catch(error => {
-            logger.error(`グローバル音声キュー処理エラー:`, error);
-          });
-        }, 0);
-        // 連続再生のためbreakを削除
       }
+    }
+    
+    // このモニターの音声エントリを一括でキューに追加
+    for (const audioEntry of audioEntries) {
+        // 音声キューに追加（デバッグログは削除）
+      
+      addToGlobalAudioQueue(audioEntry);
     }
   }
 };
