@@ -223,32 +223,6 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   // 音声再生状態を開始
   startPlayback(item.entryId, item.arrivalTime);
   
-  // 実際に再生されたタイミングを計算
-  const now = new Date();
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-  
-  // arrivalDatetimeを使用（正規化済みの到着時刻）
-  const arrivalTimeMinutes = item.arrivalDatetime || 0;
-  const timeDifference = arrivalTimeMinutes - currentTime;
-  
-  // 設定されているタイミングの中から最も近い値を選択
-  const availableTimings: number[] = await audioService.fetchAudioSettings(item.monitorId);
-  
-  if (availableTimings.length === 0) {
-    logger.error('タイミング設定が空です');
-    throw new Error('タイミング設定が取得できませんでした');
-  }
-  
-  const sortedTimings = availableTimings.sort((a, b) => b - a);
-  
-  // 時間差以上のタイミングを選択（時間差が大きいほど、より大きなタイミングを選択）
-  const validTimings = sortedTimings.filter(timing => timing >= timeDifference);
-  const playedTiming = validTimings.length > 0 ? Math.min(...validTimings) : undefined;
-  
-  if (playedTiming === undefined) {
-    logger.error(`時間差${timeDifference}分に対して適切なタイミングが見つかりません。利用可能なタイミング: ${sortedTimings}`);
-    throw new Error(`時間差${timeDifference}分に対して適切なタイミングが見つかりません`);
-  }
   
   try {
     await audioService.playChime('start');
@@ -260,10 +234,24 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
     // ローカルストレージに再生記録を保存
     try {
       const { savePlaybackRecord } = await import('./audioPlaybackManager');
+      const getJstISOString = () => {
+        const now = new Date();
+        const jstMs = now.getTime() + 9 * 60 * 60 * 1000; // UTC→JST
+        const jst = new Date(jstMs);
+        const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+        const yyyy = jst.getUTCFullYear();
+        const mm = pad(jst.getUTCMonth() + 1);
+        const dd = pad(jst.getUTCDate());
+        const hh = pad(jst.getUTCHours());
+        const mi = pad(jst.getUTCMinutes());
+        const ss = pad(jst.getUTCSeconds());
+        const ms = pad(jst.getUTCMilliseconds(), 3);
+        return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}.${ms}+09:00`;
+      };
       const record = {
         entryId: item.entryId,
-        timingMinutes: playedTiming, // 実際に再生されたタイミング
-        playedAt: new Date().toISOString(),
+        timingMinutes: item.timing, // 実際に再生されたタイミング
+        playedAt: getJstISOString(),
         arrivalTime: item.arrivalTime
       };
       savePlaybackRecord(record);
