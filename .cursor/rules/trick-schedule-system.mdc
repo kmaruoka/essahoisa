@@ -1,0 +1,34 @@
+---
+alwaysApply: true
+---
+### Project Rules
+
+#### Environment and Commands
+- Install dependencies: `npm install`
+- Start dev server: `npm run dev`
+- Build: `npm run build`
+
+### Runtime Behavior (仕様)
+- Fail Fast: 必須データ欠損・不正時はフォールバックせず例外を投げる
+- Polling:
+  - 各周期で設定・スケジュールを再取得（fetch は常に `cache: 'no-store'`）
+  - 例外時も次周期のポーリングは継続し、復旧を自動検知
+  - 次周期の間隔は `app-config.json` の `pollingIntervalSeconds` を適用（値が取得できない場合のみデフォルト10秒）
+- Data Handling:
+  - メモリ保持は描画用の最小限の state のみに限定
+  - 既再生の重複抑止はローカルストレージ記録のみで行う（メモリ保持は禁止）
+  - 空値が許容されるフィールドは `note`, `preparation`, `yard`, `lane` のみ
+- Validation:
+  - 個別 if でのフォールバック禁止。取得直後に一括検証し、問題があれば即 throw
+  - 例外は呼び出し元の包括的 try-catch で一括処理
+
+### UI/Hooks 指針
+- `ScheduleBoard`: 初期ロードで `appConfig` 取得失敗時は即 throw（エラーバウンダリで扱う）
+- `useScheduleBoard`: 副作用は最小限。ポーリング開始の契機と依存関係を明確化
+- `usePolling`:
+  - 正常時のみ state を上書き
+  - 例外時は `error` を設定しつつ次周期を必ずスケジュール
+
+### Audio（音声）
+- キューは「各ポーリング周期で構築→その場で消費し空になる」設計
+- 再生済み判定はローカルストレージの記録に一本化（メモリ管理しない）

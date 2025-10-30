@@ -9,15 +9,29 @@ import { fetchAppConfig } from '../services/configService';
 
 // 統合処理はフックとサービスへ委譲
 
-// メモリ使用量監視
+// メモリ使用量監視: 危険閾値を超えたときのみ WARN を出力（スパム防止で一定間隔に抑制）
+let lastMemoryWarnAt = 0;
 const logMemoryUsage = () => {
-  if (process.env.NODE_ENV !== 'production' && 'memory' in performance) {
-    const memory = (performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
-    logger.debug('メモリ使用量:', {
-      used: Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB',
-      total: Math.round(memory.totalJSHeapSize / 1024 / 1024) + 'MB',
-      limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
-    });
+  if (!('memory' in performance)) return;
+  const memory = (performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+  const usedMb = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+  const limitMb = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+  const usageRatio = memory.usedJSHeapSize / Math.max(1, memory.jsHeapSizeLimit);
+
+  // 危険水準（80%）を超えたら WARN。連続警告は30秒に1回まで。
+  const DANGER_THRESHOLD = 0.8;
+  const WARN_INTERVAL_MS = 30_000;
+  const now = Date.now();
+
+  if (usageRatio >= DANGER_THRESHOLD) {
+    if (now - lastMemoryWarnAt >= WARN_INTERVAL_MS) {
+      lastMemoryWarnAt = now;
+      logger.warn('メモリ使用量が高水準です', {
+        used: `${usedMb}MB`,
+        limit: `${limitMb}MB`,
+        usagePercent: Math.round(usageRatio * 100) + '%'
+      });
+    }
   }
 };
 
@@ -110,40 +124,25 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
         // メモリ使用量をログ出力
         logMemoryUsage();
         const { latestConfig, selectedMonitor, data: newData, displayEntries: newDisplayEntries, currentTimeMinutes } = await load(monitor.id);
-        // 設定未取得・モニター未発見・データ未取得のいずれでも、次回ポーリングは継続する
-        if (!latestConfig) {
-          setError('設定ファイルの取得に失敗しました');
-          setLoading(false);
-          setDisplayEntries([]);
-        } else if (!selectedMonitor) {
-          setError('指定されたモニター設定が見つかりません');
-          setLoading(false);
-          setDisplayEntries([]);
-          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
-            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
-          }
-        } else if (!newData) {
-          logger.error('データ取得失敗');
-          setError('データの取得に失敗しました');
-          setLoading(false);
-          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
-            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
-          }
-        } else {
-          const effectiveConfig = latestConfig;
-          setCurrentMonitor(selectedMonitor);
-          setCurrentConfig(latestConfig);
-          setData(newData);
-          setDisplayEntries(newDisplayEntries);
-          setError(null);
-          setLoading(false);
-          enqueueForDisplay(newDisplayEntries, selectedMonitor, effectiveConfig, currentTimeMinutes, isVisible, isLeftSide);
-          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
-            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
-          }
+
+        // 正常系のみ値を反映（Fail Fast。throw されない限り正常）
+        setCurrentMonitor(selectedMonitor);
+        setCurrentConfig(latestConfig);
+        setData(newData);
+        setDisplayEntries(newDisplayEntries);
+        setError(null);
+        setLoading(false);
+        enqueueForDisplay(newDisplayEntries, selectedMonitor, latestConfig, currentTimeMinutes, isVisible, isLeftSide);
+
+        if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
+          nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
         }
       } catch (error) {
         logger.error('ポーリングエラー:', error);
+        setError(error instanceof Error ? error.message : 'ポーリング中にエラーが発生しました');
+        setLoading(false);
+        setDisplayEntries([]);
+        // latestConfig が取れていない可能性があるため、nextIntervalMs はデフォルトのまま
       }
       
       if (pollingManager.isRunning(monitorKey)) {
