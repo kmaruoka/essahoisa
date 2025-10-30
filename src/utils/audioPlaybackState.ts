@@ -1,5 +1,6 @@
 // 音声再生状態を管理するユーティリティ
 import { logger } from './logger';
+import { AudioService } from '../services/audioService';
 
 export interface AudioPlaybackState {
   isPlaying: boolean;
@@ -214,6 +215,7 @@ export const processGlobalAudioQueue = async () => {
 
 
 // グローバル音声再生
+const audioService = new AudioService();
 const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   // 音声再生開始のINFOログ
   logger.info(`音声再生開始: ${item.supplierName} (${item.arrivalTime}) - ${item.monitorTitle}`);
@@ -230,29 +232,7 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   const timeDifference = arrivalTimeMinutes - currentTime;
   
   // 設定されているタイミングの中から最も近い値を選択
-  // 設定から動的に取得
-  let availableTimings: number[] = []; // デフォルト値（空配列）
-  
-  try {
-    // 設定ファイルから動的に取得（キャッシュなし、毎回取得）
-    const response = await fetch('/config/app-config.json', { 
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
-    });
-    if (response.ok) {
-      const config = await response.json();
-      const monitor = config.monitors.find((m: { id: string; audioSettings?: { timings?: number[] } }) => m.id === item.monitorId);
-      if (monitor && monitor.audioSettings && monitor.audioSettings.timings) {
-        availableTimings = monitor.audioSettings.timings.map((t: number) => Number(t));
-      }
-    }
-  } catch (error) {
-    logger.error('設定ファイルの取得に失敗:', error);
-    throw new Error('設定ファイルの取得に失敗しました');
-  }
+  const availableTimings: number[] = await audioService.fetchAudioSettings(item.monitorId);
   
   if (availableTimings.length === 0) {
     logger.error('タイミング設定が空です');
@@ -271,113 +251,11 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
   }
   
   try {
-  // 放送開始音声
-  await playBroadcastingStart();
-
-  // チャイムと音声合成の間に間隔を設ける
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // 音声合成
-  
-  try {
-    // 音声合成が利用可能かチェック
-    if (!('speechSynthesis' in window)) {
-      throw new Error('音声合成がサポートされていません');
-    }
-    
-    // AudioContext の状態を確認・復旧
-    try {
-      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-    } catch {
-      // AudioContext確認エラーは無視
-    }
-    
-    // 既存の音声合成を停止
-    window.speechSynthesis.cancel();
-
-    // 音声が読み込まれるまで少し待機
+    await audioService.playChime('start');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await audioService.speakText(item.speechText, { lang: item.speechLang, rate: 1.0, pitch: 1.0, volume: 1.0 });
     await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const utterance = new SpeechSynthesisUtterance(item.speechText);
-    utterance.lang = item.speechLang;
-    utterance.rate = 1.0; // デフォルト速度に変更
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // 日本語音声を明示的に設定
-    const voices = window.speechSynthesis.getVoices();
-    
-    const japaneseVoice = voices.find(voice => 
-      voice.lang.startsWith('ja') && voice.name.includes('Japanese')
-    );
-    if (japaneseVoice) {
-      utterance.voice = japaneseVoice;
-    } else {
-      // 日本語音声が見つからない場合は、ja-JPの音声を探す
-      const jaVoice = voices.find(voice => voice.lang === 'ja-JP');
-      if (jaVoice) {
-        utterance.voice = jaVoice;
-      }
-    }
-
-    // 前の音声が再生中の場合は待機（より確実な方法）
-    while (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-      await new Promise<void>((resolve) => {
-        setTimeout(() => {
-          resolve();
-        }, 100);
-      });
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      let isResolved = false;
-      
-      utterance.onstart = () => {
-      };
-      
-      utterance.onend = () => {
-        if (!isResolved) {
-          isResolved = true;
-          resolve();
-        }
-      };
-      
-      utterance.onerror = (error) => {
-        if (!isResolved) {
-          logger.error('音声合成エラー:', error);
-          isResolved = true;
-          reject(new Error('音声合成エラー: ' + error.error));
-        }
-      };
-      
-      // 音声合成を開始
-      try {
-        window.speechSynthesis.speak(utterance);
-        
-      } catch (error) {
-        logger.error('音声合成開始エラー:', error);
-        if (!isResolved) {
-          isResolved = true;
-          reject(new Error('音声合成開始エラー: ' + error));
-        }
-        return;
-      }
-      
-      // onendでのみ解決し、タイムアウトキャンセルは行わない（長尺音声対応）
-    });
-  } catch (error) {
-    logger.error('音声合成エラー:', error);
-    throw error; // エラーを再スローして、音声再生全体をスキップ
-  }
-
-  // 音声合成と終了チャイムの間に間隔を設ける
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // 放送終了音声
-  await playBroadcastingEnd();
+    await audioService.playChime('end');
     
     // ローカルストレージに再生記録を保存
     try {
@@ -400,45 +278,4 @@ const playGlobalAudio = async (item: GlobalAudioQueueItem) => {
     // processedEntriesからは削除しない（重複再生を防ぐため）
     // 再生済み記録（playedEntries）で重複を防ぐ
   }
-};
-
-// MP3ファイル再生機能（グローバル用）
-export const playBroadcastingStart = async (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio('/data/broadcasting-start1.mp3');
-    
-    audio.onended = () => {
-      resolve();
-    };
-    
-    audio.onerror = (error) => {
-      logger.error('放送開始チャイム再生エラー:', error);
-      reject(error);
-    };
-    
-    audio.play().catch((playError) => {
-      logger.error('放送開始チャイム再生開始エラー:', playError);
-      reject(playError);
-    });
-  });
-};
-
-export const playBroadcastingEnd = async (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio('/data/broadcasting-end1.mp3');
-    
-    audio.onended = () => {
-      resolve();
-    };
-    
-    audio.onerror = (error) => {
-      logger.error('放送終了チャイム再生エラー:', error);
-      reject(error);
-    };
-    
-    audio.play().catch((playError) => {
-      logger.error('放送終了チャイム再生開始エラー:', playError);
-      reject(playError);
-    });
-  });
 };
