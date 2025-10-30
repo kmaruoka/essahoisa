@@ -3,7 +3,7 @@ import { SchedulePane } from './SchedulePane';
 import { formatDisplayMessage } from '../utils/formatDisplayMessage';
 import { useScheduleBoard } from '../hooks/useScheduleBoard';
 import { useConfig } from '../hooks/usePolling';
-import type { MonitorConfig } from '../types';
+import type { MonitorConfig, AppConfig } from '../types';
 
 interface ScheduleBoardProps {
   monitor: MonitorConfig;
@@ -18,7 +18,8 @@ export const ScheduleBoard = ({
 }: ScheduleBoardProps) => {
   const { config, loading: configLoading, error: configError } = useConfig();
   
-  // フックは条件分岐の前に呼ぶ必要がある
+  // Hookは常に同じ順序で呼び出す。config未取得時はisVisible=falseで副作用を抑止
+  const fallbackConfig = { monitors: [], displaySettings: { beforeMinutes: 30, emptyTimeMessage: '現在、予定はありません' }, speechFormat: '' } as const;
   const { 
     loading, 
     error, 
@@ -29,11 +30,11 @@ export const ScheduleBoard = ({
     SPEECH_SUPPORTED 
   } = useScheduleBoard({ 
     monitor, 
-    appConfig: config || { monitors: [], displaySettings: { beforeMinutes: 30, emptyTimeMessage: '現在、予定はありません' }, speechFormat: '' }, 
-    isVisible: true, 
+    appConfig: (config ?? (fallbackConfig as unknown as AppConfig)), 
+    isVisible: !!config, 
     isLeftSide: isSplitView ? isLeft : undefined 
   });
-  
+
   if (configLoading) {
     return (
       <div className="screen">
@@ -44,12 +45,12 @@ export const ScheduleBoard = ({
     );
   }
 
-  if (configError || !config) {
-    return (
-      <div className="screen">
-        <div className="placeholder">{configError || '設定が見つかりません。'}</div>
-      </div>
-    );
+  if (configError) {
+    throw new Error(typeof configError === 'string' ? configError : '設定の読み込み中にエラーが発生しました。');
+  }
+
+  if (!config) {
+    throw new Error('設定が見つかりません。');
   }
 
   const containerClass = isSplitView 

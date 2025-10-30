@@ -6,6 +6,7 @@ import { normalizeEntries, sortEntries, pickDisplayEntries } from '../utils/sche
 
 export type LoadResult = {
   latestConfig: AppConfig | null;
+  selectedMonitor: MonitorConfig | null;
   data: ScheduleFile | null;
   displayEntries: ScheduleFile['entries'];
   currentTimeMinutes: number;
@@ -13,16 +14,36 @@ export type LoadResult = {
 
 export const useScheduleData = () => {
   const load = useCallback(async (
-    monitor: MonitorConfig,
-    appConfig: AppConfig
+    monitorId: string
   ): Promise<LoadResult> => {
     const latestConfig = await fetchAppConfig();
-    const effectiveConfig = latestConfig || appConfig;
 
-    const data = await fetchScheduleData(monitor.dataUrl);
+    if (!latestConfig) {
+      return {
+        latestConfig: null,
+        selectedMonitor: null,
+        data: null,
+        displayEntries: [],
+        currentTimeMinutes: new Date().getHours() * 60 + new Date().getMinutes()
+      };
+    }
+
+    const selectedMonitor = latestConfig.monitors.find(m => m.id === monitorId) || null;
+    if (!selectedMonitor) {
+      return {
+        latestConfig,
+        selectedMonitor: null,
+        data: null,
+        displayEntries: [],
+        currentTimeMinutes: new Date().getHours() * 60 + new Date().getMinutes()
+      };
+    }
+
+    const data = await fetchScheduleData(selectedMonitor.dataUrl);
     if (!data?.entries) {
       return {
         latestConfig,
+        selectedMonitor,
         data: null,
         displayEntries: [],
         currentTimeMinutes: new Date().getHours() * 60 + new Date().getMinutes()
@@ -31,16 +52,15 @@ export const useScheduleData = () => {
 
     const now = new Date();
     const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-    const beforeMinutes = effectiveConfig.displaySettings?.beforeMinutes ?? 30;
+    const beforeMinutes = latestConfig.displaySettings?.beforeMinutes ?? 30;
 
     const normalized = normalizeEntries(data.entries, currentTimeMinutes);
     const sorted = sortEntries(normalized);
     const picked = pickDisplayEntries(sorted, currentTimeMinutes, beforeMinutes);
 
-    // 型的には arrivalDatetime を含むが、元の ScheduleEntry 互換として扱う
     const displayEntries = picked as unknown as ScheduleFile['entries'];
 
-    return { latestConfig, data, displayEntries, currentTimeMinutes };
+    return { latestConfig, selectedMonitor, data, displayEntries, currentTimeMinutes };
   }, []);
 
   return { load };

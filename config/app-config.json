@@ -1,7 +1,7 @@
 {
   "configVersion": "1.0",
   "defaultMonitorId": "1",
-  "pollingIntervalSeconds": 30,
+  "pollingIntervalSeconds": 10,
   "speechFormat": "{supplierReading}、がにゅうせんします。{materialReading}、のじゅんびをおねがいします。",
   "displaySettings": {
     "beforeMinutes": 630,

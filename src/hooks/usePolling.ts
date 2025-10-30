@@ -105,35 +105,49 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
     const scheduleNext = async () => {
       if (!pollingManager.isRunning(monitorKey)) return;
       
+      let nextIntervalMs = 10000;
       try {
         // メモリ使用量をログ出力
         logMemoryUsage();
-        const { latestConfig, data: newData, displayEntries: newDisplayEntries, currentTimeMinutes } = await load(monitor, appConfig);
-        if (!newData) {
+        const { latestConfig, selectedMonitor, data: newData, displayEntries: newDisplayEntries, currentTimeMinutes } = await load(monitor.id);
+        // 設定未取得・モニター未発見・データ未取得のいずれでも、次回ポーリングは継続する
+        if (!latestConfig) {
+          setError('設定ファイルの取得に失敗しました');
+          setLoading(false);
+          setDisplayEntries([]);
+        } else if (!selectedMonitor) {
+          setError('指定されたモニター設定が見つかりません');
+          setLoading(false);
+          setDisplayEntries([]);
+          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
+            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
+          }
+        } else if (!newData) {
           logger.error('データ取得失敗');
           setError('データの取得に失敗しました');
           setLoading(false);
-        } else {
-          const effectiveConfig = latestConfig || appConfig;
-          if (latestConfig) {
-            const monitorConfig = latestConfig.monitors.find(m => m.id === monitor.id);
-            if (monitorConfig) {
-              setCurrentMonitor(monitorConfig);
-            }
-            setCurrentConfig(latestConfig);
+          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
+            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
           }
+        } else {
+          const effectiveConfig = latestConfig;
+          setCurrentMonitor(selectedMonitor);
+          setCurrentConfig(latestConfig);
           setData(newData);
           setDisplayEntries(newDisplayEntries);
           setError(null);
           setLoading(false);
-          enqueueForDisplay(newDisplayEntries, currentMonitor, effectiveConfig, currentTimeMinutes, isVisible, isLeftSide);
+          enqueueForDisplay(newDisplayEntries, selectedMonitor, effectiveConfig, currentTimeMinutes, isVisible, isLeftSide);
+          if (typeof latestConfig.pollingIntervalSeconds === 'number' && latestConfig.pollingIntervalSeconds > 0) {
+            nextIntervalMs = latestConfig.pollingIntervalSeconds * 1000;
+          }
         }
       } catch (error) {
         logger.error('ポーリングエラー:', error);
       }
       
       if (pollingManager.isRunning(monitorKey)) {
-        pollingManager.setTimeout(monitorKey, scheduleNext, 10000);
+        pollingManager.setTimeout(monitorKey, scheduleNext, nextIntervalMs);
       }
     };
 

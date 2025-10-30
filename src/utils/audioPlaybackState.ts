@@ -1,5 +1,6 @@
 // 音声再生状態を管理するユーティリティ
 import { logger } from './logger';
+import { hasBeenPlayed } from './audioPlaybackManager';
 import { AudioService } from '../services/audioService';
 
 export interface AudioPlaybackState {
@@ -17,8 +18,6 @@ let globalPlaybackState: AudioPlaybackState = {
   currentEntryArrivalTime: null
 };
 
-// 再生済み便の記録（重複防止用）
-const playedEntries: Set<string> = new Set();
 
 // グローバル音声キュー（全体の優先順位で管理）
 interface GlobalAudioQueueItem {
@@ -37,7 +36,6 @@ interface GlobalAudioQueueItem {
 
 const globalAudioQueue: GlobalAudioQueueItem[] = [];
 let isProcessingGlobalQueue = false;
-const processedEntries = new Set<string>(); // 処理済みまたは処理中のエントリを追跡
 let batchProcessingTimeout: number | null = null; // バッチ処理用のタイムアウト
 
 // 状態変更のリスナー
@@ -75,9 +73,6 @@ export const addPlaybackStateListener = (listener: StateChangeListener): (() => 
 
 // 音声再生開始
 export const startPlayback = (entryId: string, arrivalTime: string) => {
-  // 再生済み記録に追加
-  playedEntries.add(entryId);
-  
   updatePlaybackState({
     isPlaying: true,
     currentEntryId: entryId,
@@ -100,28 +95,19 @@ export const isEntryPlaying = (entryId: string): boolean => {
 };
 
 // 特定の便が既に再生済みかチェック
-export const isEntryAlreadyPlayed = (entryId: string): boolean => {
-  return playedEntries.has(entryId);
+// メモリではなくローカルストレージの記録を参照して重複再生を防止
+export const isEntryAlreadyPlayed = (entryId: string, timingMinutes: number): boolean => {
+  return hasBeenPlayed(entryId, timingMinutes);
 };
 
 // 再生済み記録をクリア（必要に応じて）
 export const clearPlayedEntries = () => {
-  playedEntries.clear();
+  // ローカルストレージ側の記録は別ユーティリティで管理しているため、ここでは何もしない
 };
 
 // グローバル音声キューに追加
 export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
-  // 既に再生済みの場合はスキップ
-  if (isEntryAlreadyPlayed(item.entryId)) {
-    return;
-  }
-  
-  // 既に処理済みまたは処理中の場合はスキップ
-  if (processedEntries.has(item.entryId)) {
-    return;
-  }
-  
-  // 既に同じentryIdの音声がキューに存在する場合はスキップ
+  // 既に同じentryIdの音声がキューに存在する場合はスキップ（同一バッチ内の重複防止）
   const existingItem = globalAudioQueue.find(queueItem => queueItem.entryId === item.entryId);
   if (existingItem) {
     return;
@@ -129,7 +115,6 @@ export const addToGlobalAudioQueue = (item: GlobalAudioQueueItem) => {
   
   logger.info(`音声キューに追加: ${item.supplierName} (${item.arrivalTime}) - ${item.monitorTitle}`);
   globalAudioQueue.push(item);
-  processedEntries.add(item.entryId);
   
   // バッチ処理をスケジュール（既存のタイムアウトをクリアして新しいタイムアウトを設定）
   if (batchProcessingTimeout) {
@@ -195,8 +180,8 @@ export const processGlobalAudioQueue = async () => {
   while (globalAudioQueue.length > 0) {
     const item = globalAudioQueue.shift()!;
     
-    // 既に再生済みの便はスキップ
-    if (isEntryAlreadyPlayed(item.entryId)) {
+    // 既に再生済みの便はスキップ（ローカルストレージ基準）
+    if (isEntryAlreadyPlayed(item.entryId, item.timing)) {
       continue;
     }
     
@@ -210,7 +195,7 @@ export const processGlobalAudioQueue = async () => {
   }
   
   isProcessingGlobalQueue = false;
-　};
+};
 
 
 
