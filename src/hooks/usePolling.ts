@@ -1,243 +1,13 @@
 import { useState, useEffect } from 'react';
 import type { ScheduleFile, MonitorConfig, AppConfig } from '../types';
-import { 
-  hasBeenPlayed, 
-  cleanupOldRecords,
-  clearPlaybackRecords
-} from '../utils/audioPlaybackManager';
-import { formatSpeech } from '../utils/formatSpeech';
-import { addToGlobalAudioQueue } from '../utils/audioPlaybackState';
+import { cleanupOldRecords, clearPlaybackRecords } from '../utils/audioPlaybackManager';
 import { logger } from '../utils/logger';
-import { buildConfigUrl } from '../utils/configUtils';
+import { useScheduleData } from './useScheduleData';
+import { useAudioQueue } from './useAudioQueue';
+import { fetchAppConfig } from '../services/configService';
 
-const SPEECH_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-
-// データ取得関数
-const fetchData = async (dataUrl: string): Promise<ScheduleFile | null> => {
-  try {
-    const response = await fetch(dataUrl, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`データの取得に失敗しました (${response.status})`);
-    }
-    const json = await response.json() as ScheduleFile;
-    return json;
-  } catch (err: unknown) {
-    console.error('データ取得エラー:', err);
-    return null;
-  }
-};
-
-// 設定取得関数
-const fetchConfig = async (): Promise<AppConfig | null> => {
-  try {
-    const configUrl = buildConfigUrl();
-    const response = await fetch(configUrl, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`設定ファイルの取得に失敗しました (${response.status})`);
-    }
-    const config = await response.json() as AppConfig;
-    return config;
-  } catch (err: unknown) {
-    console.error('設定取得エラー:', err);
-    return null;
-  }
-};
-
-// 統合ポーリング処理（全てのロジックを含む）
-const unifiedPolling = async (
-  monitor: MonitorConfig, 
-  appConfig: AppConfig, 
-  setData: (data: ScheduleFile | null) => void, 
-  setError: (error: string | null) => void, 
-  setLoading: (loading: boolean) => void,
-  setCurrentConfig: (config: AppConfig) => void,
-  setCurrentMonitor: (monitor: MonitorConfig) => void,
-  setDisplayEntries: (entries: ScheduleFile['entries']) => void,
-  isVisible: boolean = true,
-  isLeftSide?: boolean // 分割表示時の左右の位置（true=左、false=右、undefined=単一表示）
-) => {
-  
-  // 1. 設定ファイル取得
-  const latestConfig = await fetchConfig();
-  if (!latestConfig) {
-    logger.debug('設定ファイル取得失敗、既存設定を使用');
-  } else {
-    logger.debug('設定ファイル取得成功');
-    const monitorConfig = latestConfig.monitors.find(m => m.id === monitor.id);
-    if (monitorConfig?.audioSettings?.timings) {
-      logger.debug(`現在のtimings設定: [${monitorConfig.audioSettings.timings.join(', ')}]`);
-    }
-    // 最新の設定を状態に反映
-    setCurrentConfig(latestConfig);
-    if (monitorConfig) {
-      setCurrentMonitor(monitorConfig);
-    }
-  }
-  const config = latestConfig || appConfig;
-  
-  // 2. データ取得
-  const newData = await fetchData(monitor.dataUrl);
-  if (!newData?.entries) {
-    logger.error('データ取得失敗');
-    setError('データの取得に失敗しました');
-    setLoading(false);
-    return;
-  }
-  
-  // 3. 表示用エントリの処理（全てのロジックを統合）
-  const now = new Date();
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-  const beforeMinutes = config.displaySettings?.beforeMinutes ?? 30;
-  
-  
-  // (1) すべての時刻表データを走査し「finishTime < 現在時刻」なら翌日、そうでなければ当日とする
-  const normalizedEntries = newData.entries.map(entry => {
-    if (!entry.arrivalTime) return { ...entry, arrivalDatetime: null };
-    
-    const [arrivalHours, arrivalMinutes] = entry.arrivalTime.split(':').map(Number);
-    const arrivalTime = arrivalHours * 60 + arrivalMinutes;
-    
-    // finishTimeを計算（なければ +5分）
-    let finishTime: number;
-    if (entry.finishTime) {
-      const [finishHours, finishMinutes] = entry.finishTime.split(':').map(Number);
-      finishTime = finishHours * 60 + finishMinutes;
-    } else {
-      finishTime = arrivalTime + 5;
-    }
-    
-    // finishTime < 現在時刻なら翌日、そうでなければ当日
-    const isNextDay = finishTime < currentTime;
-    const arrivalDatetime = isNextDay ? arrivalTime + 24 * 60 : arrivalTime;
-    
-    return { ...entry, arrivalDatetime };
-  }).filter(entry => entry.arrivalDatetime !== null);
-
-  // (2) arrivalDatetimeでソート
-  const sortedEntries = normalizedEntries.sort((a, b) => {
-    if (a.arrivalDatetime === null || b.arrivalDatetime === null) return 0;
-    if (a.arrivalDatetime !== b.arrivalDatetime) {
-      return a.arrivalDatetime - b.arrivalDatetime;
-    }
-    // 同じ時刻の場合はorderでソート
-    const aOrder = parseInt(a.order || '0', 10);
-    const bOrder = parseInt(b.order || '0', 10);
-    return aOrder - bOrder;
-  });
-
-  // (3) 先頭2つを表示（beforeMinutesの制約も考慮）
-  const displayEntries = sortedEntries.filter(entry => {
-    if (!entry.arrivalDatetime) return false;
-    const showStartTime = entry.arrivalDatetime - beforeMinutes;
-    return currentTime >= showStartTime;
-  }).slice(0, 2);
-  
-
-  // データを状態に保存
-  setData(newData);
-  setDisplayEntries(displayEntries);
-  setError(null);
-  setLoading(false);
-  
-  // 4. 音声チェック（音声が有効で表示されている場合のみ）
-  if (monitor.hasAudio && SPEECH_SUPPORTED && isVisible) {
-    // 最新の設定からtimingsを取得
-    const monitorConfig = config.monitors.find(m => m.id === monitor.id);
-    const audioSettings = monitorConfig?.audioSettings || monitor.audioSettings;
-    const speechTimings = audioSettings?.timings ?? [0];
-    
-    // このモニターの音声エントリを一時的に保存
-    const audioEntries: Array<{
-      entryId: string;
-      supplierName: string;
-      arrivalTime: string;
-      arrivalDatetime: number;
-      monitorId: string;
-      monitorTitle: string;
-      isMainEntry: boolean;
-      timing: number;
-      speechText: string;
-      speechLang: string;
-      isLeftSide?: boolean;
-    }> = [];
-    
-    for (const entry of displayEntries) {
-      if (!entry.id || !entry.arrivalTime || !entry.arrivalDatetime) continue;
-
-      // arrivalDatetimeを直接使用（既に正規化済み）
-      const arrivalTime = entry.arrivalDatetime;
-      
-      // finishTimeの計算（finishTimeがない場合はarrivalTime + 5分とする）
-      let finishTime: number;
-      if (entry.finishTime) {
-        const [finishHours, finishMinutes] = entry.finishTime.split(':').map(Number);
-        let finishTimeMinutes = finishHours * 60 + finishMinutes;
-        // 日をまたぐ場合の処理（arrivalTimeと同じ日付に合わせる）
-        if (finishTimeMinutes < currentTime) {
-          finishTimeMinutes += 24 * 60;
-        }
-        finishTime = finishTimeMinutes;
-      } else {
-        finishTime = arrivalTime + 5;
-      }
-      
-      // finishTimeを過ぎている場合は音声再生しない
-      if (currentTime > finishTime) {
-        continue;
-      }
-
-      const pastTimings = speechTimings.filter(timingMinutes => {
-        const speechTime = arrivalTime - timingMinutes;
-        const shouldPlay = currentTime >= speechTime;
-        return shouldPlay;
-      });
-
-      if (pastTimings.length === 0) {
-        continue;
-      }
-
-      // 複数のタイミングが条件を満たす場合、最小値（最も近いタイミング）を選択
-      const sortedPastTimings = [...pastTimings].sort((a, b) => a - b);
-
-      let targetTiming = null;
-      for (const timingMinutes of sortedPastTimings) {
-        const hasPlayed = hasBeenPlayed(entry.id, timingMinutes);
-        if (!hasPlayed) {
-          targetTiming = timingMinutes;
-          break;
-        }
-      }
-
-      if (targetTiming !== null) {
-        // 音声エントリを一時的に保存
-        const isMainEntry = displayEntries.indexOf(entry) === 0; // 最初のエントリは上段
-        const speechText = formatSpeech(config.speechFormat, entry);
-        
-        audioEntries.push({
-          entryId: entry.id,
-          supplierName: entry.supplierName,
-          arrivalTime: entry.arrivalTime || '',
-          arrivalDatetime: entry.arrivalDatetime,
-          monitorId: monitor.id,
-          monitorTitle: monitor.title,
-          isMainEntry,
-          timing: targetTiming,
-          speechText,
-          speechLang: monitor.speechLang || 'ja-JP',
-          isLeftSide // 分割表示時の左右の位置
-        });
-      }
-    }
-    
-    // このモニターの音声エントリを一括でキューに追加
-    for (const audioEntry of audioEntries) {
-        // 音声キューに追加（デバッグログは削除）
-      
-      addToGlobalAudioQueue(audioEntry);
-    }
-  }
-};
+// 統合処理はフックとサービスへ委譲
 
 // メモリ使用量監視
 const logMemoryUsage = () => {
@@ -326,6 +96,8 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
   const [currentConfig, setCurrentConfig] = useState<AppConfig>(appConfig);
   const [currentMonitor, setCurrentMonitor] = useState<MonitorConfig>(monitor);
   const [displayEntries, setDisplayEntries] = useState<ScheduleFile['entries']>([]);
+  const { load } = useScheduleData();
+  const { enqueueForDisplay } = useAudioQueue();
   
   const monitorKey = monitor.id;
 
@@ -336,7 +108,26 @@ export const usePolling = (monitor: MonitorConfig, appConfig: AppConfig, isVisib
       try {
         // メモリ使用量をログ出力
         logMemoryUsage();
-        await unifiedPolling(monitor, appConfig, setData, setError, setLoading, setCurrentConfig, setCurrentMonitor, setDisplayEntries, isVisible, isLeftSide);
+        const { latestConfig, data: newData, displayEntries: newDisplayEntries, currentTimeMinutes } = await load(monitor, appConfig);
+        if (!newData) {
+          logger.error('データ取得失敗');
+          setError('データの取得に失敗しました');
+          setLoading(false);
+        } else {
+          const effectiveConfig = latestConfig || appConfig;
+          if (latestConfig) {
+            const monitorConfig = latestConfig.monitors.find(m => m.id === monitor.id);
+            if (monitorConfig) {
+              setCurrentMonitor(monitorConfig);
+            }
+            setCurrentConfig(latestConfig);
+          }
+          setData(newData);
+          setDisplayEntries(newDisplayEntries);
+          setError(null);
+          setLoading(false);
+          enqueueForDisplay(newDisplayEntries, currentMonitor, effectiveConfig, currentTimeMinutes, isVisible, isLeftSide);
+        }
       } catch (error) {
         logger.error('ポーリングエラー:', error);
       }
@@ -390,7 +181,7 @@ export const useConfig = () => {
   useEffect(() => {
     const fetchInitialConfig = async () => {
       try {
-        const initialConfig = await fetchConfig();
+        const initialConfig = await fetchAppConfig();
         if (initialConfig) {
           setConfig(initialConfig);
         } else {
